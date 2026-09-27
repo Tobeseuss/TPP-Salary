@@ -1,42 +1,3 @@
-# Work Log — tpp_Salary | گزارش کار پروژه حقوق و دستمزد
-
-> This file is the complete engineering work log of the project. New entries are added in **both Persian and English**. The table below is an English summary of every task; the detailed Persian entries follow.
-
-## English Summary — Task History
-
-| Task | Version | What was done |
-|---|---|---|
-| 1 | 1.0.0 | Built the initial WordPress payroll plugin from the uploaded requirements document |
-| 2 | 1.0.0 | Completed the plugin: tests, packaging, and the Caddy download server |
-| 3 | — | Diagnosed the "plugin could not be activated due to a critical issue" failure |
-| 4 | — | Post-failure hardening: free-host compatibility, dark mode, dynamic sample, Vazirmatn font, offline mode, in-plugin worklog |
-| 5 | — | Fixed `Cannot redeclare class TPP_Xlsx_Writer` — full double-load hardening (class guards) |
-| 6 | — | Fixed `Call to undefined method TPP_Settings::init()` — old/new file mismatch on the host |
-| 7 | — | Fixed activation SQL error — reserved `values` column in MariaDB from the legacy install |
-| 8 | — | Full code review & refactor + professionalization pass |
-| 9 | 1.3.0 | Namespace isolation from other `tpp_` plugins (classes/functions/tables/options) + data migration + conflict/upgrade tests |
-| 10 | 1.3.1 | Fixed three reported issues: broken Excel sample, admin-page 404s, incomplete backup management |
-| 11 | 1.3.2 | Fixed menu 404/permission failures and the broken Excel + `.excel` extension |
-| 12 | 1.4.0 | Six fixes (formulas, "other" button, dark mode, styles.xml, Windows import) + new bulk salary import |
-| 13 | 1.4.1 | Ten fixes: banks, import column detection, auto employee creation, `full_name`, 3 fields moved to profile, removed "inherently negative", insurable formula, bank-payslip form, data preserved on uninstall, dark mode |
-| 14 | 1.5.0 | Profile fields finalized, multi-format backups (SQL+JSON+Excel + ZIP with plugin files), PDF Persian shaping, A5 payslip, sample refresh, import review |
-| 15 | 1.6.0 | "Name column not found" root cause + import sample + E2E with real user files (76 employees/records) + employment status buttons + A4-landscape fitted PDF |
-| 16 | 1.6.1 | Salary list PDF: all rows on one page + column Excel + pagination everywhere |
-| 17 | 1.6.2 | Search + single/bulk delete for records, employees and centers |
-| 18 | 1.6.3 | "Fill fields from past salary" button in wizard step 3 |
-| 19 | 1.7.0 | Python offline desktop app inside the plugin + two-way REST API sync with dynamic keys |
-| 20 | 1.7.1 | All PDF fonts ≥ Vazirmatn 10pt Bold + all digits switched to English |
-| 21 | 1.7.2 | Fixed Python app startup crashes (`RecordsPage._bulk_delete` etc.) + permanent quality gates (attr-check + smoke) |
-| 22 | 1.7.3 | PDF: hide zero/calculated-only fields, single-page row fit, column fill; live recompute fix; partial settings save fix |
-| 23 | 1.7.4 | Fixed desktop "connection failed: invalid JSON response" on anti-bot hosts (tpptc.ir) |
-| 24 | 1.7.5 | Instant Excel backup on every save and every launch of the desktop app (`excel` folder, dedup, 200-file rotation) |
-| 25 | 1.7.6 | Complete rewrite of backup/restore — cross-server/cross-domain restore now works (ZIP restore, employee matching/auto-creation, record remapping, settings merge) |
-| 26 | 1.7.7 | Employee panel `[tpp_salary_panel]` redesign: stat cards, year grouping, period/new badges, new-tab links, responsive tables |
-| 27 | — | Public GitHub repository created (bilingual docs, versioned commits, GitHub Releases with installable artifacts) |
-
-## گزارش کار — فارسی
-
----
 # Worklog — پروژه پلاگین حقوق و دستمزد (tpp_Salary)
 
 ---
@@ -643,3 +604,26 @@ Stage Summary:
 - شورت‌کد پنل کارمند از قبل وجود داشت ([tpp_salary_panel] در class-tppsalary-frontend.php) — اکنون با نمایش کامل بازطراحی شده: آمار، گروه‌بندی سالانه، نشان‌ها، تب جدید، ریسپانسیو
 - کلید فرآیندی: در CSS با specificity برابر، ترتیب تعریف برنده است (hover باید بعد از zebra بیاید)؛ در بازطراحی UI، منطق امنیتی/نان‌ها را عمداً دست‌نخورده نگه داشتم و فقط لایه نمایش تغییر کرد
 - تحویل: download/tpp_salary-1.7.7-plugin.zip و tpp-salary-v1.7.7-full.zip و tpp-salary-python-app-1.7.7.zip + صفحه دانلود به‌روز؛ کاربر برای ارتقا فقط پوشه افزونه را با بسته جدید جایگزین کند (شورت‌کد صفحه تغییری نمی‌کند)
+
+---
+Task ID: 27
+Agent: main
+Task: ساخت ریپازیتوری عمومی GitHub (TPP-Salary) + انتشار Release v1.7.7 + مستندات دوزبانه | Create the public GitHub repository (TPP-Salary), publish Release v1.7.7, bilingual docs
+
+Work Log:
+- توکن PAT کاربر با API بررسی شد → حساب Tobeseuss؛ ریپوی عمومی Tobeseuss/TPP-Salary ساخته شد (توضیح دوزبانه + homepage tpptc.ir) | Verified the user's PAT → account Tobeseuss; created the public repo Tobeseuss/TPP-Salary via API
+- .git موجود در سندباکس مکانیزم snapshot خودکار پلتفرم است (کامیت‌های UUID، شامل skills/ و زیپ‌ها) → ریپوی تمیز مستقل در /home/z/my-project/TPP-Salary ساخته شد | The preexisting sandbox .git is the platform's auto-snapshot mechanism (UUID commits incl. skills/ and zips), so a clean standalone repo was built at /home/z/my-project/TPP-Salary
+- محتوای ریپو (۲۰۲ فایل): plugin/tpp_salary (۹۶ فایل، بدون کش فونت cw.dat/mtx) + scripts کامل + download/index.html + caddy + docs/PLUGIN-README.fa.md + README/CHANGELOG/worklog دوزبانه + LICENSE (GPLv2+) + .gitignore | Repo content (202 files): plugin (96 files minus font caches), full scripts, download page, caddy, docs, bilingual README/CHANGELOG/worklog, LICENSE, .gitignore
+- اسکن امنیتی قبل از push: بدون PAT / کلید زنده tppk_ / رمز؛ config.json برنامه دسکتاپ و پوشه excel در .gitignore | Security scan before push: no PAT / live tppk_ key / secrets; desktop app config.json and excel folder gitignored
+- README.md دوزبانه کامل: معرفی، امکانات، نیازمندی‌ها، نصب/ارتقا، راه‌اندازی، پنل کارمند، برنامه دسکتاپ+API، بکاپ، ساختار ریپو، تست، نسخه‌بندی و مجوز — فارسی و English معادل | Full bilingual README (intro, features, requirements, install/upgrade, setup, employee panel, desktop app+API, backup, repo layout, testing, versioning, license)
+- worklog.md: جدول خلاصه انگلیسی ۲۷ تسک در ابتدای فایل + حفظ کامل تاریخچه فارسی؛ از این پس ورودی‌ها دوزبانه | worklog.md: English summary table of all 27 tasks prepended; Persian history preserved; entries are bilingual from now on
+- CHANGELOG.md: جدول خلاصه انگلیسی ۲۵ نسخه + بخش‌های فارسی 1.3.2→1.7.7 از readme.txt افزونه وارد شد (۲۵ سکشن کامل) | CHANGELOG.md: English summary table of 25 releases + Persian sections 1.3.2→1.7.7 merged from the plugin readme.txt (25 complete sections)
+- ۴ کامیت ساختاریافته با پیام نسخه‌دار: chore baseline / feat plugin v1.7.7 / test QA suite / docs bilingual + تگ v1.7.7 → push به main | 4 structured version-tagged commits (baseline / plugin / tests / docs) + v1.7.7 tag → pushed to main
+- Release v1.7.7 با یادداشت دوزبانه منتشر شد + سه asset نصبی: plugin 645.8KB / full 657.3KB / python-app 65.6KB | Release v1.7.7 published with bilingual notes + 3 installable assets (plugin/full/python-app)
+- قاعده فرآیندی از این پس: هر تغییر کوچک/بزرگ → commit با پیام «X.Y.Z: موضوع» → push؛ هر نسخه پس از سبز شدن رگرسیون کامل → تگ vX.Y.Z + Release با سه فایل؛ worklog/CHANGELOG/README همیشه دوزبانه به‌روز می‌شوند | Going forward: every change gets a version-tagged commit+push; every release gets tag vX.Y.Z + GitHub Release with 3 artifacts; worklog/CHANGELOG/README always updated in both languages
+- نکته امنیتی: remote محلی بدون توکن است؛ push با URL موقت توکن‌دار انجام می‌شود و توکن در هیچ فایلی ذخیره نمی‌شود | Security note: local remote has no embedded token; pushes use a temporary tokenized URL and the token is never stored in any file
+
+Stage Summary:
+- ریپوی عمومی: https://github.com/Tobeseuss/TPP-Salary — ریلیز: https://github.com/Tobeseuss/TPP-Salary/releases/tag/v1.7.7 | Public repo + release live
+- ریپوی محلی سندباکس: /home/z/my-project/TPP-Salary (برای کامیت‌های آینده) | Local sandbox repo for future commits
+- قاعده دوزبانه‌سازی مستندات و نسخه‌بندی/Release برقرار شد | Bilingual docs + versioned commit/release convention established
