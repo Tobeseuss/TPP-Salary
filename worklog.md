@@ -627,3 +627,4 @@ Stage Summary:
 - ریپوی عمومی: https://github.com/Tobeseuss/TPP-Salary — ریلیز: https://github.com/Tobeseuss/TPP-Salary/releases/tag/v1.7.7 | Public repo + release live
 - ریپوی محلی سندباکس: /home/z/my-project/TPP-Salary (برای کامیت‌های آینده) | Local sandbox repo for future commits
 - قاعده دوزبانه‌سازی مستندات و نسخه‌بندی/Release برقرار شد | Bilingual docs + versioned commit/release convention established
+- بازیابی پس از ریست سندباکس: کافی است `git clone https://github.com/Tobeseuss/TPP-Salary.git` و ادامه کار؛ گیت‌هاب مرجع اصلی تاریخچه است | Sandbox-reset recovery: just `git clone https://github.com/Tobeseuss/TPP-Salary.git` and continue; GitHub is the canonical history
