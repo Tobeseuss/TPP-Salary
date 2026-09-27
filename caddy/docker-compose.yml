@@ -1,0 +1,57 @@
+# =========================================================
+#  استقرار کامل وردپرس + پلاگین حقوق و دستمزد با Caddy
+#  اجرا:  docker compose up -d
+#  سایت:  http://localhost
+#  phpMyAdmin: http://localhost:8080
+# =========================================================
+
+services:
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: tpp_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile.wordpress:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - wordpress_data:/var/www/html
+    depends_on:
+      - wordpress
+
+  wordpress:
+    image: wordpress:6.6-php8.2-fpm-alpine
+    container_name: tpp_wordpress
+    restart: unless-stopped
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: tpp
+      WORDPRESS_DB_PASSWORD: tpp_secret_pass
+      WORDPRESS_DB_NAME: tpp_salary_db
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./plugin:/tmp/tpp-plugin:ro
+    depends_on:
+      - db
+    entrypoint: ["/bin/sh", "-c", "cp -rn /tmp/tpp-plugin /var/www/html/wp-content/plugins/tpp_salary 2>/dev/null || true; docker-entrypoint.sh php-fpm"]
+
+  db:
+    image: mariadb:11
+    container_name: tpp_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secret_pass
+      MYSQL_DATABASE: tpp_salary_db
+      MYSQL_USER: tpp
+      MYSQL_PASSWORD: tpp_secret_pass
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  caddy_data:
+  caddy_config:
+  wordpress_data:
+  db_data:

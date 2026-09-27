@@ -1,0 +1,19 @@
+# ============================================
+#  سرور Caddy — سرو فایل‌های پروژه (حالت دانلود)
+#  اجرا:  caddy run --config Caddyfile
+#  سپس:  http://localhost:3000
+# ============================================
+
+:3000 {
+        # سرو فایل‌ها از پوشه download (صفحه فارسی + فایل‌های ZIP)
+        root * /home/z/my-project/download
+        file_server
+
+        # هدرهای مناسب دانلود ZIP و PDF
+        header {
+                Access-Control-Allow-Origin *
+                -Server
+        }
+
+        encode gzip
+}
