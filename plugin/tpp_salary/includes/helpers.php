@@ -486,7 +486,23 @@ if ( ! function_exists( 'tpp_salary_compute_values' ) ) {
         // TPP_SALARY GUARD: جلوگیری از Cannot redeclare function
 function tpp_salary_compute_values( $values, $manual = array(), $fields = array(), $force = array() ) {
         $fields = $fields ? $fields : tpp_salary_get_fields();
-        $values = array_map( 'floatval', $values );
+
+        /*
+         * نسخه 1.7.8 — رفع باگ: فیلدهای متنی (مثل «گروه اصلی بیمه») نباید عددی شوند.
+         * پیش‌تر array_map('floatval') همه مقادیر — از جمله متن — را به عدد تبدیل
+         * می‌کرد و حلقه گردکردن انتهایی هم متن را به صفر تبدیل می‌کرد؛ در نتیجه
+         * «گروه اصلی بیمه» ثبت‌شده در هر فیش صفر ذخیره می‌شد. اکنون فقط فیلدهای
+         * عددی floatval/گرد می‌شوند و مقادیر متنی دست‌نخورده عبور می‌کنند.
+         */
+        $text_keys = array();
+        foreach ( $fields as $f ) {
+                if ( isset( $f->field_type ) && 'number' !== $f->field_type ) {
+                        $text_keys[] = (string) $f->field_key;
+                }
+        }
+        foreach ( $values as $k => $v ) {
+                $values[ $k ] = in_array( (string) $k, $text_keys, true ) ? sanitize_text_field( (string) $v ) : (float) $v;
+        }
         $manual = array_map( 'strval', (array) $manual );
         $force  = array_map( 'strval', (array) $force );
 
@@ -529,8 +545,11 @@ function tpp_salary_compute_values( $values, $manual = array(), $fields = array(
                 $values[ $f->field_key ] = $val;
         }
 
-        // گرد کردن نهایی همه اعداد.
+        // گرد کردن نهایی همه اعداد — فقط فیلدهای عددی؛ مقادیر متنی دست‌نخورده می‌مانند (نسخه 1.7.8).
         foreach ( $values as $k => $v ) {
+                if ( in_array( (string) $k, $text_keys, true ) ) {
+                        continue;
+                }
                 $values[ $k ] = $v < 0 ? ceil( (float) $v ) : round( (float) $v );
         }
         return array( 'values' => $values, 'manual' => array_values( array_unique( $manual ) ) );
@@ -780,4 +799,195 @@ function tpp_salary_bulk_table_script( $confirm_text ) {
         <?php
 }
 // TPP_SALARY GUARD END (tpp_salary_bulk_table_script)
+}
+
+/**
+ * آخرین فیش صادرشده برای یک کارمند — نسخه 1.7.8
+ *
+ * «آخرین» بر اساس دوره (سال/ماه شمسی) و سپس جدیدترین ثبت تعیین می‌شود؛
+ * بنابراین صدور مجدد دوره‌های قدیمی‌تر (ثبت پس‌گیرانه) جای آخرین فیش را نمی‌گیرد.
+ *
+ * @param int $user_id شناسه کاربر.
+ * @return array|null آرایه (id, jyear, jmonth) یا null اگر رکوردی نباشد.
+ */
+if ( ! function_exists( 'tpp_salary_latest_record_period' ) ) {
+        // TPP_SALARY GUARD: جلوگیری از Cannot redeclare function
+function tpp_salary_latest_record_period( $user_id ) {
+        global $wpdb;
+        $user_id = (int) $user_id;
+        if ( ! $user_id ) {
+                return null;
+        }
+        $table = $wpdb->prefix . 'tpp_salary_records';
+        $rec   = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+                $wpdb->prepare(
+                        "SELECT id, jyear, jmonth FROM {$table} WHERE user_id = %d ORDER BY jyear DESC, jmonth DESC, id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+                        $user_id
+                )
+        );
+        if ( ! $rec ) {
+                return null;
+        }
+        return array(
+                'id'     => (int) $rec->id,
+                'jyear'  => (int) $rec->jyear,
+                'jmonth' => (int) $rec->jmonth,
+        );
+}
+// TPP_SALARY GUARD END (tpp_salary_latest_record_period)
+}
+
+/**
+ * پاکسازی اعشار نرخ‌های استنتاجی — نسخه 1.7.8
+ *
+ * نرخ‌ها از تقسیم مبلغ فیش بر تعداد به‌دست می‌آیند؛ خطای ممیز شناور
+ * (مثل 7.000000000000001) گرد شده و مقادیر صحیح به عدد صحیح تبدیل می‌شوند.
+ *
+ * @param float $value مقدار خام.
+ * @return float
+ */
+if ( ! function_exists( 'tpp_salary_normalize_rate' ) ) {
+        // TPP_SALARY GUARD: جلوگیری از Cannot redeclare function
+function tpp_salary_normalize_rate( $value ) {
+        $v = round( (float) $value, 4 );
+        if ( abs( $v - round( $v ) ) < 0.0000001 ) {
+                $v = (float) round( $v );
+        }
+        return $v;
+}
+// TPP_SALARY GUARD END (tpp_salary_normalize_rate)
+}
+
+/**
+ * همگام‌سازی خودکار پروفایل کارمند با آخرین فیش صادرشده — نسخه 1.7.8
+ *
+ * درخواست کاربر: فیلدهای پروفایل کاربری هر کارمند باید به‌طور خودکار مطابق
+ * آخرین فیش حقوقی صادرشده برای او به‌روزرسانی شوند. این تابع پس از هر ثبت/به‌روزرسانی
+ * فیش (فرم ویزارد، ورود گروهی اکسل، همگام‌سازی نرم‌افزار آفلاین و REST API —
+ * همه از TppSalary_Salary_Pages::upsert_record() می‌گذرند) و همچنین پس از حذف
+ * فیش (برای بازگشت به فیش جدیدترِ باقی‌مانده) فراخوانی می‌شود.
+ *
+ * نگاشت فیلدها:
+ *  - مستقیم (هم‌نام در پیلود فیش): daily_wage، seniority، housing، food،
+ *    marriage، children_count، commute، insurance_group (متنی)
+ *  - مستقیم با تغییر نام: insurable_default ← insurable (حقوق مشمول بیمه)
+ *  - استنتاجی (مبلغ فیش ÷ تعداد؛ فقط وقتی مخرج بزرگ‌تر از صفر باشد):
+ *      overtime_rate        ← overtime_pay / overtime_hours
+ *      holiday_rate         ← holiday_pay / holiday_days
+ *      child_allowance_rate ← child_allowance / children_count
+ *      absence_rate         ← |absence_penalty| / absence_days
+ *      insurance_rate       ← |insurance_deduct| / insurable × 100
+ *
+ * همگام‌سازی فقط وقتی انجام می‌شود که رکورد خوانده‌شده «آخرین دوره» کارمند باشد؛
+ * در غیر این صورت (ثبت پس‌گیرانه دوره قدیمی) پروفایل دست‌نخورده می‌ماند.
+ * توسعه‌دهندگان می‌توانند با فیلتر tpp_salary_disable_profile_sync این رفتار
+ * را برای کاربر مشخصی غیرفعال کنند.
+ *
+ * @param int $user_id شناسه کاربر.
+ * @return array|false آرایه (record_id, jyear, jmonth, updated) در موفقیت، false در غیر این صورت.
+ */
+if ( ! function_exists( 'tpp_salary_sync_profile_from_latest_record' ) ) {
+        // TPP_SALARY GUARD: جلوگیری از Cannot redeclare function
+function tpp_salary_sync_profile_from_latest_record( $user_id ) {
+        global $wpdb;
+        $user_id = (int) $user_id;
+        if ( ! $user_id ) {
+                return false;
+        }
+        if ( apply_filters( 'tpp_salary_disable_profile_sync', false, $user_id ) ) {
+                return false;
+        }
+
+        $table = $wpdb->prefix . 'tpp_salary_records';
+        $rec   = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+                $wpdb->prepare(
+                        "SELECT id, jyear, jmonth, payload FROM {$table} WHERE user_id = %d ORDER BY jyear DESC, jmonth DESC, id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+                        $user_id
+                )
+        );
+        if ( ! $rec ) {
+                return false;
+        }
+        $payload = tpp_salary_record_payload( $rec );
+        if ( empty( $payload ) ) {
+                return false;
+        }
+
+        $profile = tpp_salary_get_profile( $user_id );
+        $before  = $profile;
+        $num     = static function ( $key ) use ( $payload ) {
+                return isset( $payload[ $key ] ) ? (float) $payload[ $key ] : 0.0;
+        };
+
+        /* ۱) فیلدهای مستقیم هم‌نام (عددی) — مقدار فیش ملاک است. */
+        $direct = array( 'daily_wage', 'seniority', 'housing', 'food', 'marriage', 'children_count', 'commute' );
+        foreach ( $direct as $key ) {
+                if ( ! array_key_exists( $key, $payload ) ) {
+                        continue;
+                }
+                $profile[ $key ] = $num( $key );
+        }
+
+        /* ۲) گروه اصلی بیمه — فیلد متنی؛ مقدار خالی فیش پروفایل را خراب نمی‌کند. */
+        if ( isset( $payload['insurance_group'] ) && '' !== trim( (string) $payload['insurance_group'] ) ) {
+                $profile['insurance_group'] = sanitize_text_field( (string) $payload['insurance_group'] );
+        }
+
+        /* ۳) حقوق مشمول بیمه — تغییر نام: insurable ← پیلود، insurable_default ← پروفایل. */
+        if ( array_key_exists( 'insurable', $payload ) ) {
+                $profile['insurable_default'] = $num( 'insurable' );
+        }
+
+        /* ۴) نرخ درصد بیمه — از کسر بیمه فیش استنتاج می‌شود. */
+        $insurable = $num( 'insurable' );
+        if ( $insurable > 0 && array_key_exists( 'insurance_deduct', $payload ) ) {
+                $profile['insurance_rate'] = tpp_salary_normalize_rate( abs( $num( 'insurance_deduct' ) ) / $insurable * 100 );
+        }
+
+        /* ۵) نرخ‌های استنتاجی دیگر — فقط وقتی مخرج (تعداد) موجود و بزرگ‌تر از صفر است؛
+         *    در غیر این صورت اطلاعات جدیدی در فیش نیست و مقدار پروفایل دست‌نخورده می‌ماند. */
+        $derived = array(
+                'overtime_rate'        => array( 'overtime_pay', 'overtime_hours' ),
+                'holiday_rate'         => array( 'holiday_pay', 'holiday_days' ),
+                'child_allowance_rate' => array( 'child_allowance', 'children_count' ),
+                'absence_rate'         => array( 'absence_penalty', 'absence_days' ),
+        );
+        foreach ( $derived as $rate_key => $pair ) {
+                $count = $num( $pair[1] );
+                if ( $count <= 0 ) {
+                        continue;
+                }
+                $profile[ $rate_key ] = tpp_salary_normalize_rate( abs( $num( $pair[0] ) ) / $count );
+        }
+
+        /* فقط در صورت تغییر واقعی بنویس (از نوشتن بیهوده متا پرهیز کن). */
+        if ( $profile === $before ) {
+                return array(
+                        'record_id' => (int) $rec->id,
+                        'jyear'     => (int) $rec->jyear,
+                        'jmonth'    => (int) $rec->jmonth,
+                        'updated'   => false,
+                );
+        }
+        tpp_salary_save_profile( $user_id, $profile );
+
+        /**
+         * پس از همگام‌سازی موفق پروفایل با آخرین فیش — نسخه 1.7.8
+         *
+         * @param int   $user_id  کاربر.
+         * @param int   $record_id شناسه رکورد مبدأ.
+         * @param int   $jyear     سال دوره.
+         * @param int   $jmonth    ماه دوره.
+         * @param array $profile   پروفایل به‌روزرسانی‌شده.
+         */
+        do_action( 'tpp_salary_profile_synced', $user_id, (int) $rec->id, (int) $rec->jyear, (int) $rec->jmonth, $profile );
+
+        return array(
+                'record_id' => (int) $rec->id,
+                'jyear'     => (int) $rec->jyear,
+                'jmonth'    => (int) $rec->jmonth,
+                'updated'   => true,
+        );
+}
+// TPP_SALARY GUARD END (tpp_salary_sync_profile_from_latest_record)
 }

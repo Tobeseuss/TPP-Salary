@@ -673,6 +673,16 @@ class TppSalary_Salary_Pages {
                         $record_id = (int) $wpdb->insert_id;
                         $status    = 'created';
                 }
+
+                /*
+                 * نسخه 1.7.8 — همگام‌سازی خودکار پروفایل کارمند با آخرین فیش صادرشده:
+                 * اگر رکورد تازه‌ثبت «آخرین دوره» کارمند باشد، فیلدهای پروفایل او
+                 * (دستمزد روزانه مرجع، پایه سنوات، نرخ‌ها، حق مسکن/بن/تأهل و …)
+                 * به‌طور خودکار از همان فیش به‌روزرسانی می‌شود؛ ثبت پس‌گیرانه
+                 * دوره‌های قدیمی‌تر پروفایل را تغییر نمی‌دهد.
+                 */
+                tpp_salary_sync_profile_from_latest_record( $user_id );
+
                 return array( 'status' => $status, 'record_id' => $record_id );
         }
 
@@ -719,7 +729,13 @@ class TppSalary_Salary_Pages {
                 $id      = (int) ( (isset($_GET['id'] )?$_GET['id'] : 0 ));
                 $deleted = 0;
                 if ( $id ) {
+                        /* نسخه 1.7.8: کاربرِ رکورد پیش از حذف برای همگام‌سازی مجدد پروفایل */
+                        $rec_user = (int) $wpdb->get_var( $wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}tpp_salary_records WHERE id = %d", $id ) ); // phpcs:ignore
                         $deleted = (int) $wpdb->delete( $wpdb->prefix . 'tpp_salary_records', array( 'id' => $id ), array( '%d' ) ); // phpcs:ignore
+                        if ( $deleted && $rec_user ) {
+                                /* پروفایل با آخرین فیش باقی‌مانده همگام می‌شود (یا دست‌نخورده می‌ماند اگر فیشی نماند). */
+                                tpp_salary_sync_profile_from_latest_record( $rec_user );
+                        }
                 }
                 $back = wp_get_referer();
                 $back = $back ? $back : admin_url( 'admin.php?page=tpp-salary-records' );
@@ -759,7 +775,17 @@ class TppSalary_Salary_Pages {
                 }
                 $table = $wpdb->prefix . 'tpp_salary_records';
                 $ph    = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-                return (int) $wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE id IN ({$ph})", $ids ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery
+                /* نسخه 1.7.8: کاربرانِ رکوردها پیش از حذف — پروفایل هر یک با آخرین فیش باقی‌مانده همگام می‌شود. */
+                $user_ids = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT user_id FROM {$table} WHERE id IN ({$ph})", $ids ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery
+                $deleted  = (int) $wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE id IN ({$ph})", $ids ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery
+                if ( $deleted ) {
+                        foreach ( array_map( 'intval', (array) $user_ids ) as $uid ) {
+                                if ( $uid ) {
+                                        tpp_salary_sync_profile_from_latest_record( $uid );
+                                }
+                        }
+                }
+                return $deleted;
         }
 
         /**

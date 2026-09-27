@@ -24,7 +24,7 @@ global $wpdb;
 $plugin_dir = dirname( __DIR__ ) . '/build/tpp_salary';
 
 echo "== 0) نسخه ==\n";
-check( defined( 'TPP_SALARY_VERSION' ) && '1.7.7' === TPP_SALARY_VERSION, 'نسخه افزونه 1.6.1 است' );
+check( defined( 'TPP_SALARY_VERSION' ) && '1.7.8' === TPP_SALARY_VERSION, 'نسخه افزونه 1.6.1 است' );
 
 // ===== ۱) ریشه باگ ستون نام =====
 echo "== 1) ریشه باگ «ستون نام و نام خانوادگی یافت نشد» ==\n";

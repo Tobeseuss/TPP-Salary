@@ -3,10 +3,44 @@
 > نسخه‌های جدید در بالای همین فایل به فارسی ثبت می‌شوند. خلاصه انگلیسی همه نسخه‌ها در ادامه آمده است.
 > New entries are added in Persian at the top; an English summary of every release follows below.
 
+## 1.7.8 — 1405/07/05
+
+همگام‌سازی خودکار فیلدهای پروفایل کارمند با آخرین فیش صادرشده (درخواست کاربر: «میخواهم فیلد های دستمزد روزانه مرجع، پایه سنوات، مبلغ هر ساعت اضافه کاری، مبلغ تعطیل کاری، گروه اصلی بیمه، نرخ درصد بیمه، حقوق مشمول بیمه، حق اولاد هر فرزند، حق مسکن، حق بن، حق تأهل، جریمه غیبت روزانه، تعداد فرزند، کمک هزینه ایاب و ذهاب که در پروفایل کاربری هر کارمند وجود دارد به طور خودکار مطابق آخرین فیش حقوقی صادر شده برای کارمند آپدیت شوند»).
+
+### همگام‌سازی خودکار پروفایل
+- **تابع جدید `tpp_salary_sync_profile_from_latest_record( $user_id )`** در `includes/helpers.php` — پروفایل (`user_meta` با کلید `tpp_salary_employee_profile`) را با آخرین فیش کارمند همگام می‌کند
+- **۱۴ فیلد پروفایل** به‌روزرسانی می‌شوند:
+  - *مستقیم از پیلود فیش*: `daily_wage` (دستمزد روزانه مرجع)، `seniority` (پایه سنوات)، `housing` (حق مسکن)، `food` (حق بن)، `marriage` (حق تأهل)، `children_count` (تعداد فرزند)، `commute` (ایاب و ذهاب)، `insurance_group` (گروه اصلی بیمه — متنی)
+  - *با تغییر نام*: `insurable_default` (حقوق مشمول بیمه) ← `insurable` فیش
+  - *استنتاجی (مبلغ ÷ تعداد؛ فقط وقتی مخرج > 0)*: `overtime_rate` ← `overtime_pay/overtime_hours`، `holiday_rate` ← `holiday_pay/holiday_days`، `child_allowance_rate` ← `child_allowance/children_count`، `absence_rate` ← `|absence_penalty|/absence_days`، `insurance_rate` ← `|insurance_deduct|/insurable×100`
+- **حفاظت مخرج صفر**: اگر در فیش اضافه‌کاری/تعطیل‌کاری/غیبت/فرزندی نباشد، نرخ قبلی پروفایل حفظ می‌شود (فیش اطلاعات جدیدی ندارد)
+- **حفاظت گروه بیمه خالی**: مقدار خالی/صفر گروه بیمه در فیش، مقدار معتبر قبلی پروفایل را خراب نمی‌کند
+- **«آخرین» = آخرین دوره، نه آخرین ثبت** — رکوردها با `ORDER BY jyear DESC, jmonth DESC, id DESC` خوانده می‌شوند؛ ثبت پس‌گیرانه دوره قدیمی (مثلاً تکمیل اسفند سال قبل پس از مهر امسال) پروفایل را رگرس نمی‌دهد؛ ویرایش خودِ آخرین دوره فوراً همگام می‌شود
+- **نوشتن فقط در صورت تغییر واقعی** — مقایسه پروفایل قبل/بعد از نوشتن بیهوده usermeta جلوگیری می‌کند
+- **پاکسازی ممیز شناور** (`tpp_salary_normalize_rate`): خطاهای تقسیم مثل `7.000000000000001` به `7` گرد می‌شوند (۴ رقم اعشار)
+
+### نقاط اتصال (همه مسیرهای صدور پوشش داده می‌شوند)
+- `TppSalary_Salary_Pages::upsert_record()` — هسته مشترک فرم ویزارد، ورود گروهی اکسل، همگام‌سازی نرم‌افزار آفلاین و REST API — پس از هر درج/به‌روزرسانی موفق، همگام‌سازی اجرا می‌شود
+- حذف فیش تکی (`delete_record`) و گروهی (`bulk_delete_records`) — پس از حذف، پروفایل به آخرین فیش باقی‌مانده بازمی‌گردد؛ حذف آخرین فیش پروفایل را خراب نمی‌کند
+
+### رفع باگ قدیمی موتور محاسبه
+- **«گروه اصلی بیمه» در پیلود هر فیش صفر ذخیره می‌شد** — `tpp_salary_compute_values()` با `array_map('floatval')` همه مقادیر (از جمله متن) را عددی می‌کرد و حلقه گردکردن انتهایی متن را به `0` تبدیل می‌کرد؛ اکنون فیلدهای متنی (`field_type ≠ number`) دست‌نخورده از موتور عبور می‌کنند. این باگ از نسخه‌های قدیمی وجود داشت و دقیقاً در تست یکپارچگی همین نسخه آشکار شد
+
+### رابط کاربری و توسعه
+- **یادداشت راهنما در پروفایل کاربری پیشخوان** (بخش «اطلاعات حقوق و دستمزد»): «این فیلدها پس از صدور هر فیش حقوقی، به‌طور خودکار با آخرین فیش صادرشده همگام می‌شوند. آخرین فیش: [ماه] [سال]» — یا حالت بدون فیش
+- **فیلتر `tpp_salary_disable_profile_sync`** — توسعه‌دهندگان می‌توانند همگام‌سازی را (مثلاً برای کاربر خاص) غیرفعال کنند
+- **اکشن `tpp_salary_profile_synced`** — پس از هر همگام‌سازی موفق با (user_id, record_id, jyear, jmonth, profile) فراخوانی می‌شود
+- تابع کمکی `tpp_salary_latest_record_period( $user_id )` — آخرین دوره فیش کارمند (برای نمایش و تست)
+
+### تست
+- `scripts/test_profile_sync_178.php` جدید (۶۲ ادعا، ALL PASS): همگام‌سازی مستقیم + ۵ نرخ استنتاجی با مقادیر دقیق، حفاظت مخرج صفر و گروه بیمه خالی، رگرسیون‌ناپذیری ثبت پس‌گیرانه، یکپارچگی کامل `upsert_record` (فرم تا پروفایل)، بازگشت پروفایل پس از حذف گروهی، کاربر بدون فیش، یادداشت پیشخوان (هر دو حالت)، پاکسازی ممیز شناور
+- رگرسیون کامل: `test_fixes_150/160/162/163`، `test_api_170`، `test_panel_177`، `test_pyapp_sync.py`، `test_api_antibot.py` — همه ALL PASS
+
 ## English Summary — All Releases
 
 | Version | Highlights |
 |---|---|
+| 1.7.8 | Auto-sync of 14 employee profile fields from the latest issued payslip (direct + renamed + derived-rate mappings, latest-period wins, re-sync after single/bulk delete, covers wizard/bulk-import/offline/REST paths, dashboard note, dev filter/action) + fixed legacy bug that zeroed the textual "insurance group" in every payslip payload |
 | 1.7.7 | Employee panel `[tpp_salary_panel]` redesign: stat cards (count / latest period / total net), year grouping with collapsible sections, period + "new" + center badges, payslips before the bank form, new-tab links with `rel=noopener`, friendly empty state, Sheba hint, placeholders, green save button, responsive tables |
 | 1.7.6 | Backup/restore rewritten for cross-server/cross-domain moves: direct ZIP restore (magic-byte detection, `json/full.json` inside archive), employees matched (login → national ID → email → ID+role) or auto-created, record `user_id` remapping, settings merged instead of replaced, partial restores, detailed restore report |
 | 1.7.5 | Instant Excel backup in the desktop app on every save and every launch (SHA-256 change detection, `.part` atomic writes, 200-file rotation, 5 RTL sheets) |

@@ -26,7 +26,7 @@ global $wpdb;
 $plugin_dir = dirname( __DIR__ ) . '/build/tpp_salary';
 
 echo "== 0) نسخه ==\n";
-check( defined( 'TPP_SALARY_VERSION' ) && '1.7.7' === TPP_SALARY_VERSION, 'نسخه افزونه (همگام با بوت‌استرپ) است' );
+check( defined( 'TPP_SALARY_VERSION' ) && '1.7.8' === TPP_SALARY_VERSION, 'نسخه افزونه (همگام با بوت‌استرپ) است' );
 
 echo "== 1) سپر هاردکد فیلدهای فقط‌پروفایلی ==\n";
 check( function_exists( 'tpp_salary_field_in_record' ) && function_exists( 'tpp_salary_profile_only_keys' ), 'توابع کمکی سپر تعریف شده‌اند' );

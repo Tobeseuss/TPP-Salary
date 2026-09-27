@@ -1,6 +1,6 @@
 # tpp_Salary — حقوق و دستمزد | WordPress Payroll & Payslip System
 
-![Version](https://img.shields.io/badge/version-1.7.7-blue) ![WordPress](https://img.shields.io/badge/WordPress-%E2%89%A55.8-21759B) ![PHP](https://img.shields.io/badge/PHP-%E2%89%A55.6-777BB4) ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB) ![License](https://img.shields.io/badge/license-GPLv2%2B-green)
+![Version](https://img.shields.io/badge/version-1.7.8-blue) ![WordPress](https://img.shields.io/badge/WordPress-%E2%89%A55.8-21759B) ![PHP](https://img.shields.io/badge/PHP-%E2%89%A55.6-777BB4) ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB) ![License](https://img.shields.io/badge/license-GPLv2%2B-green)
 
 سامانه جامع حقوق و دستمزد برای وردپرس + نرم‌افزار دسکتاپ آفلاین پایتون — ثبت فیش حقوقی، فیش PDF/ZIP، گزارش اکسل، پنل کارمند، همگام‌سازی دوطرفه و پشتیبان‌گیری خودکار.
 
@@ -21,6 +21,7 @@
 - **گزارش لیست حقوق** — جدول ستونی (هر ستون یک کارمند، هر سطر یک عنوان حقوق) با خروجی اکسل و PDF در یک صفحه
 - **فیش بانکی** — فهرست کارکنان دارای حقوق ثبت‌شده در یک بانک، با شماره حساب و خالص دریافتی (اکسل و PDF)
 - **پنل کارمند** — شورت‌کد `[tpp_salary_panel]` برای مشاهده فیش‌ها، دانلود PDF و ثبت اطلاعات بانکی
+- **همگام‌سازی خودکار پروفایل** — پس از صدور هر فیش، ۱۴ فیلد پروفایل کارمند (دستمزد روزانه مرجع، پایه سنوات، نرخ‌ها، گروه بیمه، حق مسکن/بن/تأهل/اولاد، جریمه غیبت، تعداد فرزند، ایاب و ذهاب) مطابق همان فیش به‌روزرسانی می‌شود (نسخه 1.7.8)
 - **نرم‌افزار دسکتاپ پایتون (آفلاین)** — همان توانایی‌های ثبت و گزارش به‌صورت محلی با SQLite + همگام‌سازی دوطرفه با سایت از طریق REST API
 - **پشتیبان‌گیری خودکار** — روزانه/هفتگی/ماهانه/سالانه (ZIP + JSON + اکسل) با نگهداشت قابل تنظیم و بازگردانی یک‌پارچه حتی روی سرور/دامنه دیگر
 - **ورود گروهی** — ایمپورت کارمندان و حقوق‌ها از اکسل با ساخت خودکار حساب کاربری (رمز تصادفی امن)
@@ -100,7 +101,7 @@
 - قالب نسخه: `MAJOR.MINOR.PATCH` — نسخه در ۳ نقطه همگام است: هدر `Version` و `TPP_SALARY_VERSION` در `tpp-salary.php`، ثابت `TPP_SALARY_INSTALL_BUILD` در `class-tppsalary-install.php` و «Stable tag» در `readme.txt`.
 - با هر تغییر، پیام commit شماره نسخه/موضوع را دارد (مثل `1.7.7: redesign employee panel shortcode`).
 - هر نسخه پس از سبز شدن کامل رگرسیون، تگ `vX.Y.Z` گرفته و به‌صورت GitHub Release با سه فایل (plugin / full / python-app) منتشر می‌شود.
-- سابقه کامل نسخه‌های قبل از انتشار عمومی (1.0.0 تا 1.7.7) در [CHANGELOG.md](CHANGELOG.md) و [worklog.md](worklog.md) موجود است.
+- سابقه کامل نسخه‌های قبل از انتشار عمومی (1.0.0 تا 1.7.8) در [CHANGELOG.md](CHANGELOG.md) و [worklog.md](worklog.md) موجود است.
 
 ### مجوز
 
@@ -122,6 +123,7 @@ GPLv2 یا جدیدتر — هماهنگ با وردپرس. فونت Vazirmatn (
 - **Payslip PDFs** — single and bulk (one PDF per employee inside a ZIP, grouped by year/month/center) with the company logo and Vazirmatn font (min 10pt Bold)
 - **Salary list report** — column layout (one column per employee, one row per pay item) exported to Excel and single-page PDF
 - **Bank payslip** — employees paid through a selected bank with their account numbers and net pay (Excel and PDF)
+- **Automatic profile sync** — after every payslip is issued, 14 profile fields (daily wage, seniority, rates, insurance group, housing/food/marriage/child allowance, absence penalty, children count, commute) are updated from that payslip (v1.7.8)
 - **Employee panel** — the `[tpp_salary_panel]` shortcode lets staff view their payslips, download PDFs and save their bank details
 - **Offline Python desktop app** — the same recording/reporting capabilities locally on SQLite, plus two-way sync with the website over a REST API
 - **Automated backups** — daily/weekly/monthly/yearly (ZIP + JSON + Excel) with configurable retention and a unified restore that works across servers and domains
@@ -202,7 +204,7 @@ The panel shows summary cards (payslip count / latest period / total net), year-
 - Format: `MAJOR.MINOR.PATCH`, kept in sync at three points: the `Version` header and `TPP_SALARY_VERSION` in `tpp-salary.php`, `TPP_SALARY_INSTALL_BUILD` in `class-tppsalary-install.php`, and the "Stable tag" in `readme.txt`.
 - Every change (small or large) is committed with a version-tagged message (e.g. `1.7.7: redesign employee panel shortcode`).
 - Once the full regression is green, each version is tagged `vX.Y.Z` and published as a GitHub Release with three artifacts (plugin / full / python-app).
-- The pre-publication history (1.0.0 → 1.7.7) is documented in [CHANGELOG.md](CHANGELOG.md) and [worklog.md](worklog.md).
+- The pre-publication history (1.0.0 → 1.7.8) is documented in [CHANGELOG.md](CHANGELOG.md) and [worklog.md](worklog.md).
 
 ### License
 

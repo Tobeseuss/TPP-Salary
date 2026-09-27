@@ -433,6 +433,22 @@ class TppSalary_Employees {
                 $is_emp   = in_array( 'tpp_salary_employee', (array) $user->roles, true );
                 ?>
                 <h2>اطلاعات حقوق و دستمزد <?php echo $is_emp ? '' : '<span class="description">(کارمند نیست — نقش tpp_salary_employee ندارد)</span>'; ?></h2>
+                <?php /* نسخه 1.7.8: راهنمای همگام‌سازی خودکار پروفایل با آخرین فیش صادرشده */ ?>
+                <?php
+                $last_slip = tpp_salary_latest_record_period( $user->ID );
+                if ( $last_slip ) :
+                        $jmonths   = TppSalary_Jalali::months();
+                        $last_name = isset( $jmonths[ $last_slip['jmonth'] ] ) ? $jmonths[ $last_slip['jmonth'] ] : (string) $last_slip['jmonth'];
+                        ?>
+                        <p class="description" style="margin-top:-4px">
+                                <?php
+                                /* translators: 1: month name, 2: year */
+                                printf( esc_html__( 'این فیلدها پس از صدور هر فیش حقوقی، به‌طور خودکار با آخرین فیش صادرشده همگام می‌شوند. آخرین فیش: %1$s %2$d', 'tpp-salary' ), esc_html( $last_name ), (int) $last_slip['jyear'] );
+                                ?>
+                        </p>
+                <?php else : ?>
+                        <p class="description" style="margin-top:-4px">این فیلدها پس از صدور نخستین فیش حقوقی کارمند، به‌طور خودکار با همان فیش همگام می‌شوند.</p>
+                <?php endif; ?>
                 <?php if ( $is_emp ) : ?>
                         <?php /* نسخه 1.6.0: وضعیت همکاری + دکمه‌های قطع/ادامه همکاری */ ?>
                         <table class="form-table" role="presentation">
