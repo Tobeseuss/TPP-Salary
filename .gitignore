@@ -1,0 +1,19 @@
+# Generated font metric caches (rebuilt automatically on first PDF render)
+plugin/tpp_salary/lib/tfpdf/font/unifont/*.cw.dat
+plugin/tpp_salary/lib/tfpdf/font/unifont/*.cw127.php
+plugin/tpp_salary/lib/tfpdf/font/unifont/*.mtx.php
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Desktop app local user data (lives only on the user's machine)
+plugin/tpp_salary/python-app/data/config.json
+plugin/tpp_salary/python-app/excel/
+plugin/tpp_salary/python-app/*.log
+
+# Local build/test artifacts
+*.log
+.DS_Store
+Thumbs.db
