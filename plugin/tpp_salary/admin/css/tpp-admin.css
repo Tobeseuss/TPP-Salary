@@ -1,0 +1,368 @@
+/* =====================================================
+ * پلاگین حقوق و دستمزد — استایل مدیریت
+ * دارک‌مود پیش‌فرض + فونت وزیرمتن + کادرهای واضح
+ * ===================================================== */
+
+@font-face {
+        font-family: 'Vazirmatn';
+        src: url('../fonts/Vazirmatn-Regular.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+}
+@font-face {
+        font-family: 'Vazirmatn';
+        src: url('../fonts/Vazirmatn-Bold.ttf') format('truetype');
+        font-weight: bold;
+        font-style: normal;
+        font-display: swap;
+}
+
+/* ---------- متغیرها: دارک (پیش‌فرض) ---------- */
+html.tpp-page,
+body.tpp-page {
+        --tpp-bg: #13171e;
+        --tpp-surface: #1b222c;
+        --tpp-surface-2: #222b37;
+        --tpp-surface-3: #2a3441;
+        --tpp-border: #3d4a5c;
+        --tpp-border-strong: #56697f;
+        --tpp-text: #e9edf3;
+        --tpp-text-dim: #9fb0c0;
+        --tpp-accent: #4f9cf9;
+        --tpp-accent-soft: rgba(79, 156, 249, .14);
+        --tpp-green: #34d399;
+        --tpp-green-soft: rgba(52, 211, 153, .15);
+        --tpp-red: #f87171;
+        --tpp-red-soft: rgba(248, 113, 113, .15);
+        --tpp-amber: #fbbf24;
+        --tpp-blue-row: #1d3050;
+        --tpp-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+}
+
+/* ---------- متغیرها: لایت (اختیاری) ---------- */
+html.tpp-page.tpp-theme-light,
+body.tpp-page.tpp-theme-light {
+        --tpp-bg: #f0f0f1;
+        --tpp-surface: #ffffff;
+        --tpp-surface-2: #f6f7f7;
+        --tpp-surface-3: #eef0f2;
+        --tpp-border: #c3c9d1;
+        --tpp-border-strong: #8fa0b3;
+        --tpp-text: #1d2327;
+        --tpp-text-dim: #5a6673;
+        --tpp-accent: #2271b1;
+        --tpp-accent-soft: rgba(34, 113, 177, .1);
+        --tpp-green: #1a7f4e;
+        --tpp-green-soft: rgba(26, 127, 78, .12);
+        --tpp-red: #b32d2e;
+        --tpp-red-soft: rgba(179, 45, 46, .1);
+        --tpp-amber: #996800;
+        --tpp-blue-row: #e6f0fb;
+        --tpp-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+}
+
+/* ---------- پس‌زمینه کل صفحه مدیریت پلاگین ---------- */
+html.tpp-page { background: var(--tpp-bg); }
+html.tpp-page.tpp-theme-light { background: var(--tpp-bg); }
+body.tpp-page,
+body.tpp-page #wpcontent,
+body.tpp-page #wpbody,
+body.tpp-page #wpbody-content {
+        background: var(--tpp-bg) !important;
+        color: var(--tpp-text);
+}
+body.tpp-page #wpbody-content { padding-bottom: 40px; }
+body.tpp-page a { color: var(--tpp-accent); }
+body.tpp-page .wrap { color: var(--tpp-text); }
+body.tpp-page .wrap h1,
+body.tpp-page .wrap h2,
+body.tpp-page .wrap h3 {
+        color: var(--tpp-text);
+        font-family: 'Vazirmatn', tahoma, sans-serif;
+}
+
+/* فونت وزیرمتن روی همه اجزای صفحه پلاگین */
+body.tpp-page,
+body.tpp-page .wrap,
+body.tpp-page .wrap *:not(.dashicons):not(.mce-container *) {
+        font-family: 'Vazirmatn', tahoma, arial, sans-serif !important;
+}
+
+/* ---------- پنل/کارت با کادر واضح ---------- */
+.tpp-wrap { direction: rtl; }
+.tpp-wrap .tpp-panel,
+.tpp-wrap > form,
+.tpp-wrap .tpp-card {
+        background: var(--tpp-surface);
+        border: 1px solid var(--tpp-border-strong);
+        border-radius: 10px;
+        padding: 16px 20px;
+        box-shadow: var(--tpp-shadow);
+}
+
+/* ---------- تب‌ها ---------- */
+body.tpp-page .nav-tab-wrapper { border-bottom: 1px solid var(--tpp-border); }
+body.tpp-page .nav-tab {
+        background: var(--tpp-surface-2);
+        border: 1px solid var(--tpp-border);
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        color: var(--tpp-text-dim);
+        margin-left: 4px;
+}
+body.tpp-page .nav-tab:hover { color: var(--tpp-text); background: var(--tpp-surface-3); }
+body.tpp-page .nav-tab-active,
+body.tpp-page .nav-tab-active:hover {
+        background: var(--tpp-surface);
+        color: var(--tpp-accent);
+        border-color: var(--tpp-border-strong);
+        box-shadow: inset 0 -2px 0 var(--tpp-accent);
+}
+
+/* ---------- جدول‌ها ---------- */
+body.tpp-page .widefat,
+body.tpp-page .wp-list-table {
+        background: var(--tpp-surface);
+        border: 1px solid var(--tpp-border-strong) !important;
+        border-radius: 8px;
+        color: var(--tpp-text);
+        box-shadow: var(--tpp-shadow);
+        overflow: hidden;
+}
+body.tpp-page .widefat th,
+body.tpp-page .wp-list-table th {
+        color: var(--tpp-text) !important;
+        border-bottom: 2px solid var(--tpp-border-strong) !important;
+        background: var(--tpp-surface-3) !important;
+        font-weight: 700;
+}
+body.tpp-page .widefat td,
+body.tpp-page .wp-list-table td {
+        color: var(--tpp-text);
+        border-bottom: 1px solid var(--tpp-border) !important;
+        background: var(--tpp-surface) !important;
+}
+body.tpp-page .striped tbody > :nth-child(odd),
+body.tpp-page .striped tbody tr:nth-child(odd) {
+        background: var(--tpp-surface-2) !important;
+}
+body.tpp-page .striped tbody td { background: transparent !important; }
+body.tpp-page code {
+        background: var(--tpp-surface-3);
+        color: var(--tpp-amber);
+        border: 1px solid var(--tpp-border);
+        border-radius: 4px;
+        padding: 1px 5px;
+}
+body.tpp-page .row-actions span a { color: var(--tpp-accent); }
+
+/* ---------- فرم‌ها و ورودی‌ها ---------- */
+body.tpp-page .form-table th { color: var(--tpp-text); }
+body.tpp-page .form-table th,
+body.tpp-page .form-table td { padding-top: 14px; }
+body.tpp-page input[type="text"],
+body.tpp-page input[type="number"],
+body.tpp-page input[type="email"],
+body.tpp-page input[type="date"],
+body.tpp-page input[type="search"],
+body.tpp-page input[type="password"],
+body.tpp-page select,
+body.tpp-page textarea {
+        background: var(--tpp-surface-2) !important;
+        color: var(--tpp-text) !important;
+        border: 1px solid var(--tpp-border-strong) !important;
+        border-radius: 6px !important;
+        box-shadow: none !important;
+}
+body.tpp-page input:focus,
+body.tpp-page select:focus,
+body.tpp-page textarea:focus {
+        border-color: var(--tpp-accent) !important;
+        box-shadow: 0 0 0 1px var(--tpp-accent), 0 0 6px var(--tpp-accent-soft) !important;
+        outline: none;
+}
+body.tpp-page input::placeholder,
+body.tpp-page textarea::placeholder { color: var(--tpp-text-dim); }
+body.tpp-page input[type="checkbox"],
+body.tpp-page input[type="radio"] { accent-color: var(--tpp-accent); }
+
+/* ---------- دکمه‌ها ---------- */
+body.tpp-page .button,
+body.tpp-page .button-secondary {
+        background: var(--tpp-surface-3) !important;
+        color: var(--tpp-text) !important;
+        border: 1px solid var(--tpp-border-strong) !important;
+        border-radius: 6px !important;
+        text-shadow: none !important;
+        box-shadow: none !important;
+}
+body.tpp-page .button:hover,
+body.tpp-page .button-secondary:hover { background: var(--tpp-surface-2) !important; border-color: var(--tpp-accent) !important; color: var(--tpp-accent) !important; }
+body.tpp-page .button-primary {
+        background: var(--tpp-accent) !important;
+        border-color: var(--tpp-accent) !important;
+        color: #0b1420 !important;
+        font-weight: 700;
+        border-radius: 6px !important;
+        text-shadow: none !important;
+        box-shadow: var(--tpp-shadow) !important;
+}
+body.tpp-page .button-primary:hover { filter: brightness(1.12); }
+body.tpp-page .button-small { font-size: 11px; padding: 2px 10px; min-height: 24px; }
+
+/* ---------- اعلان‌ها ---------- */
+body.tpp-page .notice {
+        background: var(--tpp-surface-2);
+        border: 1px solid var(--tpp-border-strong);
+        border-radius: 8px;
+        color: var(--tpp-text);
+        box-shadow: var(--tpp-shadow);
+}
+body.tpp-page .notice-success { border-right-color: var(--tpp-green) !important; }
+body.tpp-page .notice-error { border-right-color: var(--tpp-red) !important; }
+body.tpp-page .description,
+body.tpp-page .tpp-sub { color: var(--tpp-text-dim) !important; }
+
+/* ---------- مراحل ویزارد ---------- */
+.tpp-steps { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+body.tpp-page .tpp-step {
+        padding: 8px 18px;
+        background: var(--tpp-surface-2);
+        border: 1px solid var(--tpp-border-strong);
+        border-radius: 24px;
+        font-size: 13px;
+        color: var(--tpp-text-dim);
+}
+body.tpp-page .tpp-step-active {
+        background: var(--tpp-accent);
+        border-color: var(--tpp-accent);
+        color: #0b1420;
+        font-weight: 700;
+}
+body.tpp-page .tpp-step-done { background: var(--tpp-green-soft); border-color: var(--tpp-green); color: var(--tpp-green); }
+.tpp-step a { color: inherit; text-decoration: none; }
+
+/* ---------- چیدمان ---------- */
+.tpp-columns { display: flex; gap: 16px; flex-wrap: wrap; }
+.tpp-col { flex: 1 1 400px; }
+
+.tpp-form-table .tpp-label { width: 260px; font-weight: 600; vertical-align: middle; color: var(--tpp-text); }
+.tpp-form-table .tpp-input-cell { vertical-align: middle; }
+.tpp-key-hint { font-weight: normal; font-size: 9px; color: var(--tpp-text-dim); margin-right: 6px; }
+.tpp-calc-hint { display: inline-block; margin-right: 8px; direction: ltr; color: var(--tpp-amber); }
+.tpp-inline { margin-right: 10px; white-space: nowrap; }
+
+.tpp-num { width: 190px !important; text-align: center; font-family: inherit; }
+
+/* هایلایت مغایرت با پروفایل (آبی واضح) */
+body.tpp-page .tpp-blue,
+body.tpp-page .tpp-row-differs .tpp-blue {
+        color: var(--tpp-accent) !important;
+        font-weight: 700;
+}
+body.tpp-page .tpp-row-differs { background: var(--tpp-blue-row) !important; }
+body.tpp-page .tpp-row-differs td { background: transparent !important; }
+body.tpp-page .tpp-row-differs .tpp-label::after { content: "•"; color: var(--tpp-accent); margin-right: 6px; }
+
+/* ---------- خلاصه محاسبات ---------- */
+body.tpp-page .tpp-summary {
+        background: var(--tpp-surface-2);
+        border: 1px solid var(--tpp-border-strong);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin: 14px 0;
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+        font-size: 14px;
+        box-shadow: var(--tpp-shadow);
+}
+body.tpp-page .tpp-summary strong { color: var(--tpp-accent); font-size: 16px; }
+
+/* ---------- پیوت گزارش ---------- */
+body.tpp-page .tpp-pivot th, body.tpp-page .tpp-pivot td { text-align: center !important; }
+body.tpp-page .tpp-pivot .tpp-rowlabel {
+        background: var(--tpp-surface-3) !important;
+        font-weight: 600;
+        white-space: nowrap;
+}
+
+/* ---------- یادداشت‌ها و بج‌ها ---------- */
+body.tpp-page .tpp-note {
+        background: var(--tpp-accent-soft);
+        border: 1px solid var(--tpp-accent);
+        border-right-width: 4px;
+        border-radius: 6px;
+        color: var(--tpp-text);
+        padding: 8px 12px;
+}
+body.tpp-page .tpp-badge {
+        display: inline-block;
+        padding: 2px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        border: 1px solid;
+}
+body.tpp-page .tpp-badge-ok { background: var(--tpp-green-soft); color: var(--tpp-green); border-color: var(--tpp-green); }
+body.tpp-page .tpp-badge-bad { background: var(--tpp-red-soft); color: var(--tpp-red); border-color: var(--tpp-red); }
+
+/* ---------- نوار وضعیت آفلاین ---------- */
+.tpp-offline-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        background: var(--tpp-surface-2);
+        border: 1px solid var(--tpp-border-strong);
+        border-radius: 10px;
+        padding: 10px 16px;
+        margin: 12px 0;
+        box-shadow: var(--tpp-shadow);
+}
+.tpp-offline-status { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.tpp-offline-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.tpp-offline-dot.on { background: var(--tpp-green); box-shadow: 0 0 6px var(--tpp-green); }
+.tpp-offline-dot.off { background: var(--tpp-red); box-shadow: 0 0 6px var(--tpp-red); animation: tpp-blink 1.2s infinite; }
+@keyframes tpp-blink { 50% { opacity: .35; } }
+.tpp-pending-badge {
+        background: var(--tpp-amber);
+        color: #201400;
+        border-radius: 20px;
+        padding: 2px 12px;
+        font-size: 12px;
+        font-weight: 700;
+}
+.tpp-offline-bar .tpp-sync-msg { color: var(--tpp-text-dim); font-size: 13px; }
+
+/* ---------- دکمه تغییر پوسته ---------- */
+#tpp-theme-toggle {
+        position: fixed;
+        bottom: 24px;
+        left: 24px;
+        z-index: 99990;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 2px solid var(--tpp-border-strong);
+        background: var(--tpp-surface-2);
+        color: var(--tpp-text);
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        box-shadow: var(--tpp-shadow);
+}
+#tpp-theme-toggle:hover { border-color: var(--tpp-accent); color: var(--tpp-accent); }
+
+/* ---------- دیالوگ ---------- */
+#tpp-other-dialog { direction: rtl; color: var(--tpp-text); }
+#tpp-other-dialog input { direction: ltr; text-align: center; }
+.ui-dialog.tpp-dialog {
+        background: var(--tpp-surface) !important;
+        border: 1px solid var(--tpp-border-strong) !important;
+        border-radius: 10px !important;
+        color: var(--tpp-text) !important;
+}
+.ui-dialog.tpp-dialog .ui-dialog-titlebar { background: var(--tpp-surface-3) !important; color: var(--tpp-text) !important; border-bottom: 1px solid var(--tpp-border) !important; }
+.ui-widget-overlay { background: #000 !important; opacity: .6 !important; }

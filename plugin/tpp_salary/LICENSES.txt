@@ -1,0 +1,20 @@
+TPP Salary plugin — licenses of bundled libraries
+=================================================
+
+1) tFPDF (lib/tfpdf/tfpdf.php, font/unifont/ttfonts.php)
+   Based on FPDF by Olivier Plathey, UTF-8 edition by Ian Back,
+   maintained by Tycho Veltmeijer (Setasign).
+   License: LGPL-2.1 — https://github.com/Setasign/tFPDF
+   Local modifications: GetStringWidth now treats width 65535 as zero
+   (fix for zero-width glyphs such as ZWNJ).
+
+2) Vazirmatn font (lib/tfpdf/font/unifont/Vazirmatn-Regular.ttf, Vazirmatn-Bold.ttf)
+   Copyright 2015 The Vazirmatn Project Authors (Saber Rastikerdar).
+   License: SIL Open Font License 1.1
+   https://github.com/rastikerdar/vazirmatn
+
+3) DejaVu fonts (lib/tfpdf/font/unifont/DejaVu*.ttf)
+   Copyright (c) 2003 Bitstream, public modifications under
+   Bitstream Vera license / Arev Fonts Copyright.
+   Bundled with tFPDF distribution. Not required by this plugin
+   (Vazirmatn is the default) and may be removed to reduce size.
