@@ -1,18 +1,29 @@
 # -*- coding: utf-8 -*-
 """ثبت حقوق — ویزارد ۳ مرحله‌ای (دوره/مرکز → کارمندان → فیلدها).
 
-شامل دکمه «پر کردن فیلدها بر اساس حقوق گذشته» برای هر کارمند:
-کاربر سال/ماه مبدأ را انتخاب می‌کند و مقادیر رکورد گذشته همان کارمند
-(اولویت: همان مرکز، سپس آخرین رکورد همان دوره از مرکز دیگر) بارگذاری می‌شود.
+نسخه 1.7.9:
+- مراحل در QStackedWidget میزبان می‌شوند — لیست کارمندان مرحله ۲ همهٔ ارتفاع
+  صفحه را می‌گیرد (قبلاً کوچک/غیرقابل‌اسکرول بود) و هیچ مرحله‌ای از کادر بیرون نمی‌زند.
+- فرم هر کارمند اگر «رکورد ثبت‌شدهٔ همان دوره» داشته باشد مقادیر همان رکورد را
+  می‌گیرد (هم‌سان با فرم افزونه در حالت ویرایش)؛ وگرنه اگر فیش دورهٔ قبل
+  ثبت شده باشد، «به‌صورت پیش‌فرض» از همان تکمیل می‌شود (هم‌سان با افزونه).
+- محاسبهٔ زندهٔ خودکار — آینه TPP.recalc افزونه: با هر تغییر ورودی، فیلدهای
+  فرمولی بلافاصله بازمحاسبه می‌شوند (مثلاً با تغییر «تعداد فرزند» حق اولاد
+  به‌روز می‌شود)؛ فیلد دستی فقط تا تغییر نیامدن منابع فرمولش دستی می‌ماند.
+
+دکمه «پر کردن فیلدها بر اساس حقوق گذشته» برای انتخاب دورهٔ مبدأ دیگر حفظ شده است.
 """
+
+import re
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QFrame,
     QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
-    QScrollArea, QTabWidget, QVBoxLayout, QWidget,
+    QScrollArea, QStackedWidget, QTabWidget, QVBoxLayout, QWidget,
 )
 
+from ... import formulas as F
 from ... import jalali as J
 
 MONTHS = list(range(1, 13))
@@ -23,6 +34,15 @@ def _num_input(text=""):
     e = QLineEdit(text)
     e.setAlignment(Qt.AlignCenter)
     return e
+
+
+def _fmt_num(v):
+    """نمایش عدد بدون ممیز بی‌مورد (هم‌سان با رفتار قبلی فرم)."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return str(v)
+    return str(int(f)) if f == int(f) else str(f)
 
 
 class PastPeriodDialog(QDialog):
@@ -61,7 +81,7 @@ class PastPeriodDialog(QDialog):
 
 
 class EmployeeForm(QWidget):
-    """فرم فیلدهای یک کارمند در مرحله ۳."""
+    """فرم فیلدهای یک کارمند در مرحله ۳ — با محاسبهٔ زندهٔ خودکار (1.7.9)."""
 
     def __init__(self, win, emp, center_id, jyear, jmonth, on_changed=None):
         super().__init__()
@@ -74,6 +94,10 @@ class EmployeeForm(QWidget):
         self.inputs = {}
         self.chk_formula = None
         self.src_label = None
+        # موتور محاسبهٔ زنده — آینه state افزونه:
+        self.manual_keys = []   # فیلدهای ویرایش‌شدهٔ دستی (آینه data-manual)
+        self._last = None       # اسنپ‌شات قبلی مقادیر برای تشخیص تغییر منابع
+        self._updating = False  # گارد حلقهٔ textChanged هنگام setText برنامه‌ای
 
         v = QVBoxLayout(self)
         v.setContentsMargins(14, 12, 14, 12)
@@ -101,14 +125,11 @@ class EmployeeForm(QWidget):
             lab.setStyleSheet("background:transparent; color:#475569;")
             e = _num_input()
             e.setMinimumWidth(130)
-            # مقدار اولیه: پروفایل کارمند یا پیش‌فرض فیلد
-            profile = emp.get("profile", {}) or {}
-            val = profile.get(f["key"], f.get("default", "") or "")
-            if str(val) not in ("", None):
-                e.setText(str(val))
             if f["calculated"]:
                 e.setStyleSheet("color:#0d9488; font-weight:700;")
-                e.setToolTip("فیلد محاسباتی — با دکمه «محاسبه» یا ذخیره، از فرمول به‌روز می‌شود؛ ویرایش دستی مجاز است")
+                e.setToolTip("فیلد محاسباتی — با تغییر فیلدهای منبع، خودکار به‌روز می‌شود؛ ویرایش دستی مجاز است")
+            # محاسبهٔ زنده: هر تغییر ورودی → بازمحاسبهٔ خودکار فرمول‌ها (1.7.9)
+            e.textChanged.connect(lambda _t, key=f["key"]: self._on_input(key))
             self.inputs[f["key"]] = e
             grid.addWidget(lab, row, col * 2)
             grid.addWidget(e, row, col * 2 + 1)
@@ -120,10 +141,12 @@ class EmployeeForm(QWidget):
 
         bottom = QHBoxLayout()
         self.chk_formula = QCheckBox("محاسبه با فرمول (حقوق مشمول بیمه)")
+        self.chk_formula.stateChanged.connect(lambda *_: self._on_input(None))
         bottom.addWidget(self.chk_formula)
         btn_calc = QPushButton("محاسبه")
         btn_calc.setCursor(Qt.PointingHandCursor)
-        btn_calc.clicked.connect(self.recalc)
+        btn_calc.setToolTip("بازمحاسبهٔ همهٔ فیلدهای محاسباتی از فرمول (بازنشانی ویرایش‌های دستی)")
+        btn_calc.clicked.connect(self.force_recalc)
         bottom.addWidget(btn_calc)
         bottom.addStretch(1)
         self.src_label = QLabel("")
@@ -131,7 +154,69 @@ class EmployeeForm(QWidget):
         bottom.addWidget(self.src_label)
         v.addLayout(bottom)
 
-    # ------- پر کردن از گذشته -------
+        # مقادیر اولیه: رکورد موجود دوره ← وگرنه فیش دورهٔ قبل (خودکار) ← وگرنه پروفایل/پیش‌فرض
+        self._load_initial_values()
+
+    # ---------------- مقادیر اولیه (1.7.9) ----------------
+
+    def _set_text(self, key, val):
+        e = self.inputs.get(key)
+        if e is not None:
+            # گارد _updating: پرکردن برنامه‌ای نباید فلگ «دستی» بسازد یا بازمحاسبه کند
+            self._updating = True
+            try:
+                e.setText(_fmt_num(val))
+            finally:
+                self._updating = False
+
+    def _apply_payload(self, payload, manual, mode, label):
+        """پرکردن فیلدها از یک پیلود + فلگ‌های دستی + حالت مشمول + بازمحاسبهٔ زندهٔ اولیه."""
+        for key, e in self.inputs.items():
+            if key in ("manual", "insurable_mode"):
+                continue
+            self._set_text(key, payload.get(key, 0))
+        self.manual_keys = [str(m) for m in (manual or [])]
+        self.chk_formula.setChecked(mode == "formula")
+        self._last = None
+        self._live_recalc()
+        self.src_label.setText(label)
+
+    def _load_initial_values(self):
+        # ۱) رکورد ثبت‌شدهٔ همان دوره — هم‌سان با فرم ویرایش افزونه
+        rec = self.win.store.record_period(self.emp["id"], self.center_id, self.jyear, self.jmonth)
+        if rec:
+            from ...api_client import load_json
+            payload = load_json(rec.get("payload"), {}) or {}
+            self._apply_payload(
+                payload, payload.get("manual"), payload.get("insurable_mode", "profile"),
+                "ویرایش رکورد ثبت‌شدهٔ %s" % J.period_label(self.jyear, self.jmonth))
+            return
+        # ۲) نسخه 1.7.9 (درخواست کاربر): اگر برای ماه قبل فیش ثبت شده، ماه جدید
+        #    به‌صورت پیش‌فرض مطابق همان تکمیل می‌شود — هم‌سان با افزونه.
+        prev_year, prev_month = (self.jyear, self.jmonth - 1) if self.jmonth > 1 else (self.jyear - 1, 12)
+        rec, same_center = self.win.store.past_salary(self.emp["id"], self.center_id, prev_year, prev_month)
+        if rec:
+            from ...api_client import load_json
+            payload = load_json(rec.get("payload"), {}) or {}
+            src_center = self.win.store.center(rec["center_id"])
+            center_txt = src_center["name"] if src_center else "—"
+            self._apply_payload(
+                payload, payload.get("manual"), payload.get("insurable_mode", "profile"),
+                "✓ تکمیل خودکار بر اساس فیش %s — مرکز: %s%s" % (
+                    J.period_label(rec["jyear"], rec["jmonth"]), center_txt,
+                    "" if same_center else " (مرکز فعلی رکورد نداشت)"))
+            return
+        # ۳) مقادیر پیش‌فرض از پروفایل کارمند / پیش‌فرض فیلد
+        profile = self.emp.get("profile", {}) or {}
+        for f in self.win.store.fields():
+            val = profile.get(f["key"], f.get("default", "") or "")
+            self._set_text(f["key"], val if str(val) != "None" else "")
+        self.chk_formula.setChecked(False)
+        self.manual_keys = []
+        self._last = None
+        self._live_recalc()
+
+    # ---------------- پر کردن از گذشته ----------------
 
     def fill_from_past(self):
         jy, jm, _ = J.today_jalali()
@@ -141,8 +226,6 @@ class EmployeeForm(QWidget):
         if src_month < 1:
             src_month = 12
             src_year -= 1
-        if not (src_year == self.jyear and src_month == self.jmonth):
-            src_year, src_month = src_year, src_month
         dlg = PastPeriodDialog(src_year, src_month, self)
         if dlg.exec() != QDialog.Accepted:
             return
@@ -154,23 +237,84 @@ class EmployeeForm(QWidget):
             return
         from ...api_client import load_json
         payload = load_json(rec.get("payload"), {}) or {}
-        manual = payload.get("manual", [])
-        for key, e in self.inputs.items():
-            if key in ("manual", "insurable_mode"):
-                continue
-            val = payload.get(key, 0)
-            e.setText(str(int(val)) if isinstance(val, float) and val == int(val) else str(val))
-        mode = payload.get("insurable_mode", "profile")
-        self.chk_formula.setChecked(mode == "formula")
         src_center = self.win.store.center(rec["center_id"])
         center_txt = src_center["name"] if src_center else "—"
-        self.src_label.setText("✓ از %s — مرکز: %s%s" % (
-            J.period_label(rec["jyear"], rec["jmonth"]), center_txt,
-            "" if same_center else " (مرکز فعلی رکورد نداشت)"))
-        # مانند TPP.recalc افزونه: بازمحاسبه اجباری فیلدهای محاسباتی با حفظ فلگ‌های دستی مبدأ
-        self.recalc(force=True, manual_keys=manual)
+        self._apply_payload(
+            payload, payload.get("manual"), payload.get("insurable_mode", "profile"),
+            "✓ از %s — مرکز: %s%s" % (
+                J.period_label(rec["jyear"], rec["jmonth"]), center_txt,
+                "" if same_center else " (مرکز فعلی رکورد نداشت)"))
 
-    # ------- محاسبه زنده -------
+    # ---------------- محاسبهٔ زندهٔ خودکار — آینه TPP.recalc (1.7.9) ----------------
+
+    def _on_input(self, key):
+        """واکنش به تغییر هر ورودی — فیلد ویرایش‌شده دستی می‌شود و فرم بازمحاسبه می‌شود."""
+        if self._updating:
+            return
+        if key is not None and key not in self.manual_keys:
+            self.manual_keys.append(key)
+        self._live_recalc()
+
+    @staticmethod
+    def _formula_sources(formula):
+        """کلیدهای منبع فرمول — آینه formulaSources افزونه (نسخه 1.7.3)."""
+        return re.findall(r"\{([A-Za-z0-9_]+)\}", str(formula or ""))
+
+    def _live_recalc(self, force_all=False):
+        """
+        محاسبهٔ زنده — آینه تابع recalc() در admin/js/tpp-salary-admin.js:
+        - فیلد دستی تا وقتی که منابع فرمولش تغییر نکرده دست‌نخورده می‌ماند
+        - با تغییر هر منبع (مستقیم یا زنجیره‌ای) فیلد دوباره خودکار محاسبه می‌شود
+        - دو گذر برای انتشار زنجیره‌ای وابستگی‌ها (کارکرد ← ناخالص ← خالص)
+        - فیلد مشمول بیمه فقط در حالت فرمولی محاسبه می‌شود
+        force_all (دکمهٔ «محاسبه»): همهٔ فیلدهای محاسباتی از فرمول بازمی‌شوند.
+        """
+        if self._updating:
+            return
+        self._updating = True
+        try:
+            texts = {k: e.text() for k, e in self.inputs.items()}
+            nums = {k: J.parse_number(t) for k, t in texts.items()}
+            changed = {}
+            if self._last is not None:
+                for k, t in texts.items():
+                    if k in self._last and self._last[k] != t:
+                        changed[k] = True
+            fields = self.win.store.fields()
+            insurable_on = self.chk_formula.isChecked()
+            for _pass in range(2):
+                for f in fields:
+                    if not f["calculated"] or not f["formula"]:
+                        continue
+                    key = f["key"]
+                    e = self.inputs.get(key)
+                    if e is None:
+                        continue
+                    if key == "insurable" and not insurable_on:
+                        continue
+                    if not force_all and key in self.manual_keys and not any(
+                            s in changed for s in self._formula_sources(f["formula"])):
+                        continue
+                    try:
+                        val = F.evaluate(f["formula"], nums)
+                    except F.FormulaError:
+                        continue
+                    val = F.php_ceil_toward_zero(val) if val < 0 else F.php_round(val)
+                    if nums.get(key, 0.0) != val:
+                        changed[key] = True  # برای انتشار به وابسته‌های دستی در گذر بعد
+                    e.setText(_fmt_num(val))
+                    nums[key] = val
+                    texts[key] = e.text()
+            self._last = texts
+        finally:
+            self._updating = False
+
+    def force_recalc(self):
+        """دکمهٔ «محاسبه» — بازمحاسبهٔ اجباری همهٔ فیلدهای محاسباتی از فرمول."""
+        self.manual_keys = []
+        self._live_recalc(force_all=True)
+
+    # ---------------- سازگاری با کد قبلی ----------------
 
     def collect_values(self):
         vals = {}
@@ -179,13 +323,11 @@ class EmployeeForm(QWidget):
         return vals
 
     def recalc(self, force=False, manual_keys=None):
-        """محاسبه زنده — مانند دکمه محاسبه افزونه: فیلدهای محاسباتی از فرمول پر می‌شوند."""
-        values, manual = self.win.store.compute_preview(
-            self.collect_values(), self.chk_formula.isChecked(),
-            manual_keys or [], force_calculated=force)
-        for key, e in self.inputs.items():
-            v = values.get(key, 0)
-            e.setText(str(int(v)) if float(v) == int(v) else str(v))
+        """بازمحاسبهٔ سازگار با فراخوانی‌های قدیمی — force همهٔ فیلدها را از فرمول می‌گیرد."""
+        if manual_keys is not None:
+            self.manual_keys = [str(m) for m in manual_keys]
+        self._last = None if force else self._last
+        self._live_recalc(force_all=bool(force))
 
 
 class RegisterPage(QFrame):
@@ -215,10 +357,13 @@ class RegisterPage(QFrame):
         self.step1 = self._build_step1()
         self.step2 = self._build_step2()
         self.step3 = self._build_step3()
-        v.addWidget(self.step1)
-        v.addWidget(self.step2)
-        v.addWidget(self.step3)
-        v.addStretch(1)
+        # نسخه 1.7.9: میزبان QStackedWidget — مرحلهٔ فعال همهٔ ارتفاع صفحه را
+        # می‌گیرد (قبلاً لیست کارمندان مرحلهٔ ۲ کوچک و خارج از اسکرول بود).
+        self.stack = QStackedWidget()
+        self.stack.addWidget(self.step1)
+        self.stack.addWidget(self.step2)
+        self.stack.addWidget(self.step3)
+        v.addWidget(self.stack, 1)
 
         self.show_step(1)
 
@@ -246,6 +391,7 @@ class RegisterPage(QFrame):
         form.addRow("ماه:", self.cmb_month)
         form.addRow("مرکز:", self.cmb_center)
         v.addWidget(panel)
+        v.addStretch(1)
 
         btns = QHBoxLayout()
         btn_next = QPushButton("مرحله بعد ←")
@@ -387,9 +533,7 @@ class RegisterPage(QFrame):
 
     def show_step(self, step):
         self.step = step
-        self.step1.setVisible(step == 1)
-        self.step2.setVisible(step == 2)
-        self.step3.setVisible(step == 3)
+        self.stack.setCurrentIndex(step - 1)
         if step == 1:
             self.step_label.setText("مرحله ۱ از ۳ — سال، ماه و مرکز را انتخاب کنید")
             self._load_centers()

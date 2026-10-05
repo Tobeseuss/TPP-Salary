@@ -420,6 +420,15 @@ class Store(object):
         r = self.db.one("SELECT * FROM records WHERE id = ?", (record_id,))
         return dict(r) if r else None
 
+    def record_period(self, user_id, center_id, jyear, jmonth):
+        """رکورد دقیق یک کارمند/مرکز/دوره — آینه tpp_salary_get_record_period افزونه (1.7.9)."""
+        r = self.db.one(
+            "SELECT * FROM records WHERE user_id=? AND center_id=? AND jyear=? AND jmonth=? AND local_deleted=0"
+            " ORDER BY id DESC LIMIT 1",
+            (user_id, center_id, jyear, jmonth),
+        )
+        return dict(r) if r else None
+
     def period_records(self, jyear, jmonth, center_id=0):
         sql = "SELECT * FROM records WHERE jyear = ? AND jmonth = ? AND local_deleted = 0"
         params = [jyear, jmonth]

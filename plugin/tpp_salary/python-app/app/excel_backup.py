@@ -12,8 +12,10 @@
 - نگهداری           → ۲۰۰ نسخه آخر؛ قدیمی‌ترها خودکار حذف می‌شوند
 - خرابی             → بی‌سوت در sync_log ثبت می‌شود؛ هیچ‌وقت برنامه را نمی‌بندد
 
-محتوات هر فایل: شیت «اطلاعات بکاپ» + «کارمندان» + «حقوق و دستمزد» (همه فیلدهای
-فیش + جمع کل/مشمول/بیمه/سایر کسورات/خالص) + «مراکز» + «بانک‌ها» — راست‌به‌چپ.
+محتوات هر فایل: شیت «اطلاعات بکاپ» + «کارمندان» + شیت‌های «ستونی لیست حقوق»
+به‌ازای هر دوره (نسخه 1.7.9 — هم‌سان با خروجی اکسل گزارش افزونه: «عنوان ستون»
+= نام کارمند و «سطرها» = عناوین حقوق، با سطر عنوان شرکت/دوره/مرکز و سطر واحد)
++ «مراکز» + «بانک‌ها» — راست‌به‌چپ.
 """
 
 import datetime
@@ -37,6 +39,12 @@ REASON_LABELS = {
 }
 
 _BACKUP_PREFIX = "backup_"
+
+# نسخه 1.7.9 — قالب ستونی هم‌سان با گزارش افزونه:
+# فیلدهای «فقط محاسباتی» (آینه CALC_ONLY_KEYS در class-tppsalary-reports.php)
+CALC_ONLY_KEYS = ("overtime_hours", "holiday_days", "absence_days")
+# بیشینه تعداد ستون (کارمند) در هر شیت — شیت‌های بعدی با پسوند (۲)، (۳)…
+MAX_COLS_PER_SHEET = 10
 
 
 class ExcelBackupManager(object):
@@ -156,6 +164,7 @@ class ExcelBackupManager(object):
             )
             fields = self.db.q("SELECT * FROM fields ORDER BY sort ASC, field_key ASC")
             company = self.db.kv_get("company_name", "")
+            currency = self.db.kv_get("currency", "ریال")
         digest = hashlib.sha256()
         for rows in (centers, banks, employees, records, fields):
             digest.update(
@@ -170,6 +179,7 @@ class ExcelBackupManager(object):
             "records": records,
             "fields": fields,
             "company": company,
+            "currency": currency,
         }
 
     def _stored_hash(self):
@@ -260,52 +270,9 @@ class ExcelBackupManager(object):
         for c, w in enumerate((8, 24, 14, 14, 14, 22, 12, 26, 16, 28), start=1):
             ws_emp.column_dimensions[get_column_letter(c)].width = w
 
-        # --- شیت حقوق و دستمزد ---
+        # --- شیت‌های ستونی لیست حقوق — نسخه 1.7.9 (هم‌سان با گزارش اکسل افزونه) ---
         emp_by_id = {int(e["id"]): e for e in snap["employees"]}
-        field_list = [(str(f["field_key"]), str(f["label"] or f["field_key"])) for f in snap["fields"]]
-        rec_headers = (["سال", "ماه", "نام کارمند", "کد ملی", "مرکز"]
-                       + [label for _k, label in field_list]
-                       + ["جمع کل", "مشمول بیمه", "بیمه سهم کارمند", "سایر کسورات",
-                          "خالص پرداختی", "آخرین تغییر"])
-        ws_rec = wb.create_sheet("حقوق و دستمزد")
-        for c, h in enumerate(rec_headers, start=1):
-            ws_rec.cell(row=1, column=c, value=h)
-        for r, rec in enumerate(snap["records"], start=2):
-            try:
-                payload = json.loads(rec.get("payload") or "{}")
-                if not isinstance(payload, dict):
-                    payload = {}
-            except Exception:
-                payload = {}
-            emp = emp_by_id.get(int(rec.get("user_id") or 0))
-            ws_rec.cell(row=r, column=1, value=int(rec.get("jyear") or 0))
-            ws_rec.cell(row=r, column=2, value=int(rec.get("jmonth") or 0))
-            ws_rec.cell(row=r, column=3, value=str(emp["name"]) if emp else "کارمند #%s" % rec.get("user_id"))
-            ws_rec.cell(row=r, column=4, value=str(emp["national"] or "") if emp else "")
-            ws_rec.cell(row=r, column=5, value=center_names.get(int(rec.get("center_id") or 0),
-                                                               "مرکز #%s" % rec.get("center_id")))
-            col = 6
-            for key, _label in field_list:
-                val = payload.get(key, 0)
-                try:
-                    val = float(val or 0)
-                except (TypeError, ValueError):
-                    val = 0.0
-                ws_rec.cell(row=r, column=col, value=val)
-                col += 1
-            for key in ("gross", "insurable", "insurance_deduct", "other_deductions", "net"):
-                try:
-                    val = float(rec.get(key) or 0)
-                except (TypeError, ValueError):
-                    val = 0.0
-                ws_rec.cell(row=r, column=col, value=val)
-                col += 1
-            ws_rec.cell(row=r, column=col, value=str(rec.get("updated_at") or ""))
-        style_header(ws_rec, len(rec_headers))
-        ws_rec.column_dimensions[get_column_letter(3)].width = 24
-        ws_rec.column_dimensions[get_column_letter(5)].width = 18
-        for c in range(6, len(rec_headers) + 1):
-            ws_rec.column_dimensions[get_column_letter(c)].width = 15
+        self._write_salary_sheets(wb, snap, emp_by_id, center_names)
 
         # --- شیت مراکز ---
         ws_cen = wb.create_sheet("مراکز")
@@ -344,6 +311,145 @@ class ExcelBackupManager(object):
             except Exception:
                 pass
         return path
+
+    # ---------------- شیت‌های ستونی لیست حقوق (نسخه 1.7.9) ----------------
+    #
+    # آینه build_report_xlsx افزونه (class-tppsalary-reports.php — قالب 1.6.1):
+    #  — «نام ستون» = نام کارمند و «سطرها» = عناوین حقوق
+    #  — سطر ۱ عنوان (شرکت — لیست حقوق دوره — مرکز)، سطر ۲ واحد پول، سطر ۳ خالی
+    #  — فیلدهای فقط‌محاسباتی و فیلدهای عددیِ همه‌صفر دوره حذف می‌شوند (1.7.3 افزونه)
+    #  — اعداد با جداکننده هزارگان؛ منفی قرمز
+
+    @staticmethod
+    def _to_float(v):
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    @classmethod
+    def _parse_payload(cls, rec):
+        try:
+            payload = json.loads(rec.get("payload") or "{}")
+            return payload if isinstance(payload, dict) else {}
+        except Exception:
+            return {}
+
+    @classmethod
+    def _salary_printable_fields(cls, snap_fields, payloads):
+        """آینه printable_fields افزونه — بدون CALC_ONLY و فیلدهای عددی همه‌صفر دوره."""
+        out = []
+        for f in snap_fields:
+            key = str(f["field_key"])
+            if key in CALC_ONLY_KEYS:
+                continue
+            ftype = str(f["type"] or "")
+            if ftype == "number":
+                if not any(abs(cls._to_float(p.get(key))) > 1e-4 for p in payloads):
+                    continue
+            out.append((key, str(f["label"] or key), ftype))
+        return out
+
+    @staticmethod
+    def _unique_sheet_name(used, base):
+        name, n = base, 2
+        while name in used or len(name) > 31:
+            name = "%s (%d)" % (base, n)
+            n += 1
+        used.add(name)
+        return name
+
+    def _write_salary_sheets(self, wb, snap, emp_by_id, center_names):
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.utils import get_column_letter
+
+        groups = {}
+        for rec in snap["records"]:
+            key = (int(rec["jyear"] or 0), int(rec["jmonth"] or 0), int(rec["center_id"] or 0))
+            groups.setdefault(key, []).append(rec)
+        if not groups:
+            return
+
+        used = set(wb.sheetnames)
+        company = str(snap.get("company") or "")
+        currency = str(snap.get("currency") or "ریال")
+
+        title_font = Font(bold=True, size=12)
+        head_font = Font(bold=True, size=10)
+        head_fill = PatternFill("solid", fgColor="E8EDF5")
+        label_fill = PatternFill("solid", fgColor="F7F7F7")
+        thin = Side(style="thin", color="B8BFCB")
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+        center = Alignment(horizontal="center", vertical="center")
+        right = Alignment(horizontal="right", vertical="center")
+        numfmt = "#,##0;[Red]-#,##0"
+
+        for (jy, jm, cid), recs in groups.items():
+            payloads = [self._parse_payload(r) for r in recs]
+            fields = self._salary_printable_fields(snap["fields"], payloads)
+            center_name = center_names.get(cid, "مرکز #%d" % cid)
+            pages = [recs[i:i + MAX_COLS_PER_SHEET] for i in range(0, len(recs), MAX_COLS_PER_SHEET)]
+            for ci, chunk in enumerate(pages):
+                base = "لیست %04d-%02d" % (jy, jm)
+                if len(groups) > 1 or ci > 0 or len(chunk) > 1:
+                    base += " " + center_name.strip()[:10]
+                if ci > 0:
+                    base += " (%d)" % (ci + 1)
+                ws = wb.create_sheet(self._unique_sheet_name(used, base))
+                ws.sheet_view.rightToLeft = True
+                ncols = 1 + len(chunk)
+
+                # سطر ۱: عنوان — شرکت + دوره + مرکز
+                title = ("%s — " % company if company else "") + \
+                    "لیست حقوق %s — %s" % (J.period_label(jy, jm), center_name)
+                ws.cell(row=1, column=1, value=title)
+                ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+                ws.cell(row=1, column=1).font = title_font
+
+                # سطر ۲: واحد پول
+                ws.cell(row=2, column=1, value="واحد: %s" % currency)
+                ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
+                ws.cell(row=2, column=1).font = head_font
+
+                # سطر ۳ خالی — هدر در سطر ۴: نام کارمندان (نام ستون = نام کارمند)
+                hdr = 4
+                for cc in range(1, ncols + 1):
+                    cell = ws.cell(row=hdr, column=cc)
+                    cell.font = head_font
+                    cell.fill = head_fill
+                    cell.border = border
+                    cell.alignment = center
+                ws.cell(row=hdr, column=1, value="عناوین")
+                for k, rec in enumerate(chunk):
+                    emp = emp_by_id.get(int(rec.get("user_id") or 0))
+                    name = str(emp["name"]) if emp else "کارمند #%s" % rec.get("user_id")
+                    ws.cell(row=hdr, column=2 + k, value=name)
+
+                # سطرها: فقط عناوین حقوق
+                r = hdr + 1
+                for key, label, ftype in fields:
+                    lab = ws.cell(row=r, column=1, value=label)
+                    lab.font = head_font
+                    lab.fill = label_fill
+                    lab.border = border
+                    lab.alignment = right
+                    for k, rec in enumerate(chunk):
+                        payload = self._parse_payload(rec)
+                        cell = ws.cell(row=r, column=2 + k)
+                        cell.border = border
+                        cell.alignment = center
+                        if ftype == "number":
+                            val = self._to_float(payload.get(key))
+                            cell.value = val
+                            cell.number_format = numfmt
+                        else:
+                            cell.value = str(payload.get(key, "") or "")
+                    r += 1
+
+                ws.column_dimensions["A"].width = 26
+                for cc in range(2, ncols + 1):
+                    ws.column_dimensions[get_column_letter(cc)].width = 22
+                ws.freeze_panes = ws.cell(row=hdr + 1, column=2).coordinate
 
     # ---------------- فایل‌ها و نگهداری ----------------
 

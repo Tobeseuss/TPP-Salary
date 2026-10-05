@@ -26,7 +26,7 @@ global $wpdb;
 $plugin_dir = dirname( __DIR__ ) . '/build/tpp_salary';
 
 echo "== 0) نسخه و کلاس API ==\n";
-check( defined( 'TPP_SALARY_VERSION' ) && '1.7.8' === TPP_SALARY_VERSION, 'نسخه افزونه 1.7.0 است' );
+check( defined( 'TPP_SALARY_VERSION' ) && '1.7.9' === TPP_SALARY_VERSION, 'نسخه افزونه 1.7.0 است' );
 check( class_exists( 'TppSalary_Api' ), 'کلاس TppSalary_Api بارگذاری شد' );
 check( defined( 'TPP_SALARY_INSTALL_BUILD' ) && TPP_SALARY_INSTALL_BUILD === TPP_SALARY_VERSION, 'INSTALL_BUILD همگام با نسخه است' );
 

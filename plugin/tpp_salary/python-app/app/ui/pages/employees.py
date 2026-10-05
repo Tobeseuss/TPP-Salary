@@ -3,9 +3,10 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QFrame, QHBoxLayout,
-    QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
-    QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout,
+    QApplication, QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QFrame,
+    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QMessageBox, QPushButton, QScrollArea, QTableWidget, QTableWidgetItem,
+    QVBoxLayout, QWidget,
 )
 
 from ... import jalali as J
@@ -27,6 +28,14 @@ class EmployeeDialog(QDialog):
         v.setContentsMargins(18, 16, 18, 14)
         v.setSpacing(10)
 
+        # نسخه 1.7.9: بدنه دیالوگ داخل QScrollArea — با فیلدهای پروفایل زیاد
+        # (۱۴+ فیلد) فرم از ارتفاع صفحه بیرون نمی‌زند و همیشه قابل اسکرول است؛
+        # دکمه‌ها بیرون اسکرول و همیشه در دسترس هستند.
+        body = QWidget()
+        bv = QVBoxLayout(body)
+        bv.setContentsMargins(0, 0, 0, 0)
+        bv.setSpacing(10)
+
         form = QFormLayout()
         form.setSpacing(10)
         self.inp_name = QLineEdit(str(self.emp.get("name", "")))
@@ -39,6 +48,7 @@ class EmployeeDialog(QDialog):
         # مراکز
         self.center_list = QListWidget()
         self.center_list.setMinimumHeight(90)
+        self.center_list.setMaximumHeight(120)  # نسخه 1.7.9: اسکرول داخلی، نه رشد بی‌حد
         sel_centers = [int(c) for c in (self.emp.get("centers") or [])]
         for c in win.store.centers():
             item = QListWidgetItem(c["name"])
@@ -47,7 +57,7 @@ class EmployeeDialog(QDialog):
             self.center_list.addItem(item)
             item.setCheckState(Qt.Checked if int(c["id"]) in sel_centers else Qt.Unchecked)
         form.addRow("مراکز:", self.center_list)
-        v.addLayout(form)
+        bv.addLayout(form)
 
         # فیلدهای پروفایل (از سایت — آینده‌پذیر)
         profile_fields = load_json(win.db.kv_get("profile_fields", "[]"), []) or []
@@ -55,19 +65,26 @@ class EmployeeDialog(QDialog):
         if profile_fields:
             cap = QLabel("فیلدهای پروفایل")
             cap.setStyleSheet("font-weight:700; color:#334155; background:transparent;")
-            v.addWidget(cap)
+            bv.addWidget(cap)
             pf = QFormLayout()
             self.profile_inputs = {}
             for f in profile_fields:
                 e = QLineEdit(str(profile.get(f["key"], f.get("default", "")) or ""))
                 self.profile_inputs[f["key"]] = e
                 pf.addRow("%s:" % f["label"], e)
-            v.addLayout(pf)
+            bv.addLayout(pf)
 
         # وضعیت
         self.chk_terminated = QCheckBox("قطع همکاری (از فهرست‌های حقوق حذف می‌شود)")
         self.chk_terminated.setChecked(bool(self.emp.get("terminated")))
-        v.addWidget(self.chk_terminated)
+        bv.addWidget(self.chk_terminated)
+        bv.addStretch(1)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setWidget(body)
+        v.addWidget(scroll, 1)
 
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self._accept)
@@ -75,6 +92,12 @@ class EmployeeDialog(QDialog):
         bb.button(QDialogButtonBox.Ok).setText("ذخیره")
         bb.button(QDialogButtonBox.Cancel).setText("انصراف")
         v.addWidget(bb)
+
+        # نسخه 1.7.9: ارتفاع دیالوگ هرگز از صفحهٔ نمایش بیرون نمی‌زند
+        self.setSizeGripEnabled(True)
+        screen = QApplication.primaryScreen()
+        avail_h = screen.availableGeometry().height() if screen else 720
+        self.resize(max(560, self.minimumWidth()), min(max(420, self.sizeHint().height()), max(420, avail_h - 60)))
 
     def _accept(self):
         if not self.inp_name.text().strip():

@@ -161,15 +161,30 @@ def main():
             "save-triggered backup missing (last_error=%r)" % mgr.last_error
 
         # e) content: all sheets present + row counts match store
+        #    (نسخه 1.7.9: شیت سطری «حقوق و دستمزد» با شیت‌های ستونی «لیست …» جایگزین شد)
         wb = load_workbook(mgr.backup_files()[-1])
-        for sheet in ("اطلاعات بکاپ", "کارمندان", "حقوق و دستمزد", "مراکز", "بانک‌ها"):
+        for sheet in ("اطلاعات بکاپ", "کارمندان", "مراکز", "بانک‌ها"):
             assert sheet in wb.sheetnames, "missing sheet %s (got %s)" % (sheet, wb.sheetnames)
+        assert "حقوق و دستمزد" not in wb.sheetnames, \
+            "legacy row sheet still present (got %s)" % wb.sheetnames
         n_emp = len(win.store.employees())
         rows_emp = max(0, wb["کارمندان"].max_row - 1)
         assert rows_emp == n_emp, "employees sheet rows %s != store %s" % (rows_emp, n_emp)
         n_rec = int(win.db.one("SELECT COUNT(*) AS c FROM records WHERE local_deleted = 0")["c"])
-        rows_rec = max(0, wb["حقوق و دستمزد"].max_row - 1)
-        assert rows_rec == n_rec, "records sheet rows %s != store %s" % (rows_rec, n_rec)
+        sal_sheets = [n for n in wb.sheetnames if n.startswith("لیست ")]
+        if n_rec:
+            assert sal_sheets, "columnar salary sheets missing while records exist"
+            recs_per_sheet = {}
+            for sn in sal_sheets:
+                hdrs = [wb[sn].cell(row=4, column=c).value for c in range(2, wb[sn].max_column + 1)]
+                assert wb[sn].cell(row=4, column=1).value == "عناوین", \
+                    "columnar header missing in %s" % sn
+                for h in hdrs:
+                    recs_per_sheet[h] = recs_per_sheet.get(h, 0) + 1
+            assert len(recs_per_sheet) <= n_rec, \
+                "more employee columns than records (%s > %s)" % (len(recs_per_sheet), n_rec)
+        else:
+            assert not sal_sheets, "salary sheets written without records (got %s)" % sal_sheets
         assert mgr.last_error is None, "backup manager error: %r" % mgr.last_error
     except Exception:
         errors.append("excel backup: %s" % traceback.format_exc(limit=6))

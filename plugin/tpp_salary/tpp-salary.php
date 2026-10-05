@@ -3,7 +3,7 @@
  * Plugin Name: حقوق و دستمزد (tpp_Salary)
  * Plugin URI:  https://example.com/tpp-salary
  * Description: سامانه جامع حقوق و دستمزد — ثبت فیش حقوقی، مراکز (پروژه/کارگاه)، بانک‌ها، گزارش لیست حقوق و فیش بانکی، فیش حقوقی تکی و عمده (ZIP)، خروجی اکسل و PDF با لوگوی شرکت، بکاپ‌گیری خودکار و ورود گروهی اطلاعات.
- * Version:     1.7.8
+ * Version:     1.7.9
  * Author:      TPP
  * Text Domain: tpp-salary
  * Domain Path: /languages
@@ -44,7 +44,7 @@ if ( defined( 'TPP_SALARY_VERSION' ) ) {
         return; // نسخه دوم بارگذاری نمی‌شود.
 }
 
-define( 'TPP_SALARY_VERSION', '1.7.8' );
+define( 'TPP_SALARY_VERSION', '1.7.9' );
 define( 'TPP_SALARY_DB_VERSION', '3' );
 define( 'TPP_SALARY_FILE', __FILE__ );
 define( 'TPP_SALARY_DIR', plugin_dir_path( __FILE__ ) );

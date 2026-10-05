@@ -325,6 +325,7 @@ class TppSalary_Salary_Pages {
                 $values = array();
                 $manual = array();
                 $insurable_mode = 'profile';
+                $prefill_note = '';
                 if ( $existing ) {
                         $manual = isset( $payload['manual'] ) && is_array( $payload['manual'] ) ? $payload['manual'] : array();
                         $insurable_mode = isset( $payload['insurable_mode'] ) ? $payload['insurable_mode'] : 'profile';
@@ -332,21 +333,47 @@ class TppSalary_Salary_Pages {
                                 $values[ $f->field_key ] = isset( $payload[ $f->field_key ] ) ? $payload[ $f->field_key ] : '';
                         }
                 } else {
-                        // مقادیر پیش‌فرض از پروفایل کارمند.
-                        foreach ( $fields as $f ) {
-                                $key = $f->field_key;
-                                $profile_key = ( 'daily_wage' === $key ) ? 'daily_wage' : $key;
-                                $values[ $key ] = '';
-                                if ( '' !== (string) $f->default_value ) {
-                                        $values[ $key ] = $f->default_value;
+                        /*
+                         * نسخه 1.7.9 (درخواست کاربر): پیش‌فرض جدید — اگر برای «دورهٔ قبل»
+                         * فیش حقوقی برای این کارمند ثبت شده باشد، فیلدهای ماه جدید
+                         * به‌صورت خودکار مطابق همان فیش تکمیل می‌شود (اولویت رکورد
+                         * همان مرکز، سپس رکورد همان دوره از مرکز دیگر — هم‌سان با
+                         * «پر کردن فیلدها بر اساس حقوق گذشته»). در غیر این صورت
+                         * رفتار قبلی (پروفایل/پیش‌فرض فیلدها) حفظ می‌شود.
+                         */
+                        $prev_year  = ( $jmonth > 1 ) ? $jyear : $jyear - 1;
+                        $prev_month = ( $jmonth > 1 ) ? $jmonth - 1 : 12;
+                        $past       = self::past_salary_payload( $user_id, $center_id, $prev_year, $prev_month );
+                        if ( is_array( $past ) && ! empty( $past['values_raw'] ) ) {
+                                $manual         = isset( $past['manual'] ) && is_array( $past['manual'] ) ? array_map( 'strval', $past['manual'] ) : array();
+                                $insurable_mode = isset( $past['insurable_mode'] ) ? $past['insurable_mode'] : 'profile';
+                                foreach ( $fields as $f ) {
+                                        $values[ $f->field_key ] = isset( $past['values_raw'][ $f->field_key ] ) ? $past['values_raw'][ $f->field_key ] : '';
                                 }
-                                if ( isset( $profile[ $profile_key ] ) && '' !== (string) $profile[ $profile_key ] ) {
-                                        $values[ $key ] = $profile[ $profile_key ];
-                                } elseif ( isset( $defaults[ $key ] ) && '' !== (string) $defaults[ $key ] ) {
-                                        $values[ $key ] = $defaults[ $key ];
-                                }
-                                if ( 'insurable' === $key ) {
-                                        $values[ $key ] = isset( $profile['insurable_default'] ) ? $profile['insurable_default'] : ( (isset($defaults['insurable_default'] )?$defaults['insurable_default'] : 0 ));
+                                $prefill_note = sprintf(
+                                        'فیلدها به‌صورت خودکار بر اساس فیش دورهٔ قبل (%1$s%2$s) تکمیل شد — در صورت نیاز ویرایش کنید.',
+                                        esc_html( $past['period_label'] ),
+                                        ( ! empty( $past['center_name'] ) && ! $past['same_center'] )
+                                                ? ' — مرکز مبدأ: ' . esc_html( $past['center_name'] )
+                                                : ''
+                                );
+                        } else {
+                                // مقادیر پیش‌فرض از پروفایل کارمند.
+                                foreach ( $fields as $f ) {
+                                        $key = $f->field_key;
+                                        $profile_key = ( 'daily_wage' === $key ) ? 'daily_wage' : $key;
+                                        $values[ $key ] = '';
+                                        if ( '' !== (string) $f->default_value ) {
+                                                $values[ $key ] = $f->default_value;
+                                        }
+                                        if ( isset( $profile[ $profile_key ] ) && '' !== (string) $profile[ $profile_key ] ) {
+                                                $values[ $key ] = $profile[ $profile_key ];
+                                        } elseif ( isset( $defaults[ $key ] ) && '' !== (string) $defaults[ $key ] ) {
+                                                $values[ $key ] = $defaults[ $key ];
+                                        }
+                                        if ( 'insurable' === $key ) {
+                                                $values[ $key ] = isset( $profile['insurable_default'] ) ? $profile['insurable_default'] : ( (isset($defaults['insurable_default'] )?$defaults['insurable_default'] : 0 ));
+                                        }
                                 }
                         }
                 }
@@ -371,6 +398,11 @@ class TppSalary_Salary_Pages {
 
                         <?php if ( $existing ) : ?>
                                 <p class="tpp-note">این رکورد قبلاً ثبت شده است — فیلدهایی که با اطلاعات اولیه پروفایل کارمند تفاوت دارند با <span class="tpp-blue">رنگ آبی</span> نمایش داده می‌شوند.</p>
+                        <?php endif; ?>
+
+                        <?php /* نسخه 1.7.9: اعلان تکمیل خودکار از فیش دورهٔ قبل */ ?>
+                        <?php if ( '' !== $prefill_note ) : ?>
+                                <p class="tpp-note tpp-note-auto"><?php echo esc_html( $prefill_note ); ?></p>
                         <?php endif; ?>
 
                         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="tpp-salary-form">
@@ -835,6 +867,15 @@ class TppSalary_Salary_Pages {
                         $values[ $key ] = ( 'number' === $f->field_type ) ? tpp_salary_format_number( (float) $v, false ) : (string) $v;
                 }
                 $src_center = tpp_salary_get_center( (int) $rec->center_id );
+                /* نسخه 1.7.9: مقادیر خام (بدون جداکننده) برای مصرف سرور — فرم مرحله ۳
+                 * فیلدهای عددی را دوباره tpp_salary_format_number می‌کند و مقدار
+                 * قالب‌بندی‌شده با (float) به عدد اشتباه تبدیل می‌شد (250,000,000 ← 250). */
+                $values_raw = array();
+                foreach ( $fields as $f ) {
+                        $key = $f->field_key;
+                        $v   = isset( $payload[ $key ] ) ? $payload[ $key ] : '';
+                        $values_raw[ $key ] = ( 'number' === $f->field_type ) ? (float) $v : (string) $v;
+                }
                 return array(
                         'user_id'        => $user_id,
                         'center_id'      => (int) $rec->center_id,
@@ -844,6 +885,7 @@ class TppSalary_Salary_Pages {
                         'same_center'    => ( (int) $rec->center_id === $center_id ),
                         'period_label'   => TppSalary_Jalali::period_label( $src_year, $src_month ),
                         'values'         => $values,
+                        'values_raw'     => $values_raw,
                         'manual'         => array_values( array_map( 'strval', $manual ) ),
                         'insurable_mode' => ( isset( $payload['insurable_mode'] ) && 'formula' === $payload['insurable_mode'] ) ? 'formula' : 'profile',
                 );

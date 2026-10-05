@@ -334,6 +334,11 @@ body.tpp-page .tpp-note {
         color: var(--tpp-text);
         padding: 8px 12px;
 }
+/* نسخه 1.7.9: اعلان تکمیل خودکار فیلدها از فیش دورهٔ قبل */
+body.tpp-page .tpp-note-auto {
+        border-color: #22c55e;
+        border-right-width: 4px;
+}
 body.tpp-page .tpp-badge {
         display: inline-block;
         padding: 2px 12px;

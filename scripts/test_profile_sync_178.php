@@ -38,7 +38,7 @@ global $wpdb;
 $now = current_time( 'mysql' );
 
 echo "== 1) توابع کمکی و نسخه ==\n";
-check( defined( 'TPP_SALARY_VERSION' ) && '1.7.8' === TPP_SALARY_VERSION, 'نسخه افزونه 1.7.8 است' );
+check( defined( 'TPP_SALARY_VERSION' ) && '1.7.9' === TPP_SALARY_VERSION, 'نسخه افزونه 1.7.8 است' );
 check( defined( 'TPP_SALARY_INSTALL_BUILD' ) && TPP_SALARY_INSTALL_BUILD === TPP_SALARY_VERSION, 'INSTALL_BUILD همگام با نسخه است' );
 check( function_exists( 'tpp_salary_sync_profile_from_latest_record' ), 'تابع همگام‌سازی تعریف شده است' );
 check( function_exists( 'tpp_salary_latest_record_period' ), 'تابع آخرین دوره فیش تعریف شده است' );

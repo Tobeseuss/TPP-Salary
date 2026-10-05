@@ -3,6 +3,40 @@
 > نسخه‌های جدید در بالای همین فایل به فارسی ثبت می‌شوند. خلاصه انگلیسی همه نسخه‌ها در ادامه آمده است.
 > New entries are added in Persian at the top; an English summary of every release follows below.
 
+## 1.7.9 — 1405/07/13
+
+درخواست کاربر: «در صفحه ثبت حقوق میخواهم هم در پلاگین و هم در نرم افزار پایتون به صورت پیشفرض، در صورتی که برای ماه قبل کارمند حقوقی ثبت شده باشد، حقوق ماه جدید نیز در فرم نمایش داده شده مطابق حقوق ماه قبل تکمیل شده باشد … در نرم افزار پایتون شروط و محاسبات خودکار انجام نمی شود و نمیتوان مثلا با تغییر تعداد فرزند، حق اولاد را محاسبه کرد … فایل اکسل خروجی می بایست به صورت ستونی (عنوان ستون نام کارمند و ردیف ها عناوین حقوقی او) باشد … مطمئن شوی که نسخه آفلاین دقیقا مطابق نسخه آنلاین عمل میکند».
+
+### تکمیل خودکار فرم ثبت حقوق از فیش ماه قبل (پلاگین + پایتون)
+- **پلاگین — فرم مرحله ۳**: اگر رکورد ثبت‌شده برای دوره نباشد و فیش «دورهٔ قبل» (همان مرکز، سپس هر مرکز دیگر) موجود باشد، فیلدها به‌صورت پیش‌فرض از همان تکمیل می‌شوند + اعلان سبز `tpp-note-auto` با دورهٔ مبدأ (و نام مرکز مبدأ در صورت جابه‌جایی)؛ فلگ‌های دستی و حالت مشمول بیمه دورهٔ مبدأ منتقل می‌شوند؛ در نبود فیش دورهٔ قبل، رفتار قبلی (پروفایل/پیش‌فرض) حفظ می‌شود
+- **نرم‌افزار پایتون**: همان منطق در `EmployeeForm._load_initial_values()` — برچسب «✓ تکمیل خودکار بر اساس فیش …»؛ دکمهٔ «پر کردن فیلدها بر اساس حقوق گذشته» برای انتخاب مبدأ دیگر حفظ شد
+- **رفع باگ پلاگین**: `past_salary_payload()` اکنون علاوه بر `values` (قالب‌بندی‌شده برای JS) کلید `values_raw` (عدد خام) برمی‌گرداند — فرم سرورِ پیش‌فیل مقدار قالب‌بندی‌شده را با `(float)` تبدیل می‌کرد و `250,000,000` به `250` خراب می‌شد
+- فروردین ← اسفند سال قبل خودکار حل می‌شود (1405/01 ← 1404/12)
+
+### محاسبهٔ زندهٔ خودکار در نرم‌افزار پایتون (آینه TPP.recalc افزونه)
+- با هر تغییر ورودی، فیلدهای فرمولی بلافاصله بازمحاسبه می‌شوند (مثلاً تغییر «تعداد فرزند» ← حق اولاد)
+- فیلد دستی فقط تا وقتی منابع فرمولش تغییر نکرده دستی می‌ماند؛ با تغییر هر منبع (مستقیم/زنجیره‌ای) دوباره خودکار محاسبه می‌شود — آینه منطق 1.7.3 افزونه
+- دو گذر انتشار وابستگی‌ها (کارکرد ← ناخالص ← خالص)؛ فیلد مشمول بیمه فقط در حالت فرمولی؛ دکمهٔ «محاسبه» = بازمحاسبهٔ اجباری همهٔ فیلدهای محاسباتی + پاک‌سازی فلگ‌های دستی
+- گارد `_updating` جلوی حلقهٔ `textChanged` در `setText` برنامه‌ای را می‌گیرد
+
+### هم‌سانی فرم ویرایش پایتون با پلاگین
+- فرم پایتون اگر رکورد ثبت‌شدهٔ همان دوره را داشته باشد مقادیر همان را بارگذاری می‌کند (قبلاً همیشه از پروفایل پر می‌شد و ذخیرهٔ مجدد مقادیر را بازنویسی می‌کرد) + متد جدید `store.record_period()` (آینه `tpp_salary_get_record_period`) و برچسب «ویرایش رکورد ثبت‌شدهٔ …»
+
+### رابط کاربری نرم‌افزار پایتون
+- **صفحهٔ کارمندان — پنجرهٔ افزودن/ویرایش**: بدنه داخل `QScrollArea` (با ۱۴+ فیلد پروفایل از صفحه بیرون نمی‌زند)، دکمه‌ها بیرون اسکرول و همیشه در دسترس، لیست مراکز با سقف ارتفاع و اسکرول داخلی، ارتفاع دیالوگ هرگز از ارتفاع صفحهٔ نمایش بیشتر نمی‌شود
+- **ثبت حقوق — مرحلهٔ ۲ (انتخاب کارمندان)**: سه مرحلهٔ ویزارد در `QStackedWidget` میزبانی شد تا مرحلهٔ فعال تمام ارتفاع صفحه را بگیرد — لیست کارمندان کوچک/غیرقابل‌اسکرول نبود
+
+### اکسل بکاپ پایتون — قالب ستونی هم‌سان با گزارش افزونه
+- شیت سطری «حقوق و دستمزد» حذف شد؛ به‌جای آن برای هر «دوره + مرکز» شیت‌های ستونی «لیست YYYY-MM مرکز» ساخته می‌شود: سطر ۱ عنوان (شرکت — لیست حقوق دوره — مرکز)، سطر ۲ «واحد:» پول، سطر ۴ هدر («عناوین» + نام کارمندان به‌عنوان عنوان ستون)، سطرها = عناوین حقوق
+- آینه `printable_fields` افزونه: حذف فیلدهای فقط‌محاسباتی (`overtime_hours/holiday_days/absence_days`) و فیلدهای عددیِ همه‌صفر هر دوره
+- اعداد با `#,##0;[Red]-#,##0` (جداکننده هزارگان، منفی قرمز)، راست‌به‌چپ، فریز پنل، بیشینه ۱۰ ستون در هر شیت (ادامه با پسوند (۲)…)
+
+### تست و همگام‌سازی
+- `scripts/test_fixes_179.php` جدید (۳۵+ ادعا): پیش‌فیل دورهٔ قبل + اعلان، نبود مبدأ → رفتار قبلی، فروردین ← اسفند سال قبل، فلگ دستی، ویرایش رکورد موجود بدون اعلان، اولویت/مبدأ مرکز دیگر، رگرسیون همگام‌سازی پروفایل 1.7.8
+- `scripts/test_pyapp_179.py` جدید (۳۵+ ادعا، offscreen): `record_period`، تکمیل خودکار ماه قبل، محاسبهٔ زنده (فرزند ← حق اولاد)، آزادسازی فیلد دستی با تغییر منبع، دکمهٔ محاسبه، ویرایش رکورد موجود، ذخیرهٔ پیوسته، ساختار کامل اکسل ستونی
+- `pyapp_smoke.py` به قالب ستونی اکسل به‌روز شد؛ رگرسیون کامل سبز (۲۹ تست PHP + `test_pyapp_sync` + `test_api_antibot` + attr-check + pyflakes + smoke)
+- مسیر همگام‌سازی نرم‌افزار آفلاین تغییر نکرده و همچنان از `record.upsert` → هسته مشترک `upsert_record` افزونه می‌گذرد؛ بنابراین همگام‌سازی پروفایل ۱.۷.۸ برای فیش‌های ثبت‌شده در حالت آفلاین نیز فعال است
+
 ## 1.7.8 — 1405/07/05
 
 همگام‌سازی خودکار فیلدهای پروفایل کارمند با آخرین فیش صادرشده (درخواست کاربر: «میخواهم فیلد های دستمزد روزانه مرجع، پایه سنوات، مبلغ هر ساعت اضافه کاری، مبلغ تعطیل کاری، گروه اصلی بیمه، نرخ درصد بیمه، حقوق مشمول بیمه، حق اولاد هر فرزند، حق مسکن، حق بن، حق تأهل، جریمه غیبت روزانه، تعداد فرزند، کمک هزینه ایاب و ذهاب که در پروفایل کاربری هر کارمند وجود دارد به طور خودکار مطابق آخرین فیش حقوقی صادر شده برای کارمند آپدیت شوند»).
@@ -40,6 +74,7 @@
 
 | Version | Highlights |
 |---|---|
+| 1.7.9 | Full offline/online parity: the salary form (plugin **and** Python app) auto-fills from the previous month's payslip by default (green notice, manual-flag & insurable-mode carry-over, Farvardin → Esfand); live auto-recalculation in the Python app (children count → child allowance) mirroring TPP.recalc; Python edit mode now loads the saved period record; employee dialog & wizard employee list no longer overflow/under-size (QScrollArea + QStackedWidget); Python Excel backup rewritten into the plugin's columnar format (employees as columns, salary items as rows, one sheet per period+center, CALC_ONLY/all-zero fields dropped, `#,##0;[Red]-#,##0`); fixed plugin prefill float-cast corruption (250,000,000 → 250) via `values_raw` |
 | 1.7.8 | Auto-sync of 14 employee profile fields from the latest issued payslip (direct + renamed + derived-rate mappings, latest-period wins, re-sync after single/bulk delete, covers wizard/bulk-import/offline/REST paths, dashboard note, dev filter/action) + fixed legacy bug that zeroed the textual "insurance group" in every payslip payload |
 | 1.7.7 | Employee panel `[tpp_salary_panel]` redesign: stat cards (count / latest period / total net), year grouping with collapsible sections, period + "new" + center badges, payslips before the bank form, new-tab links with `rel=noopener`, friendly empty state, Sheba hint, placeholders, green save button, responsive tables |
 | 1.7.6 | Backup/restore rewritten for cross-server/cross-domain moves: direct ZIP restore (magic-byte detection, `json/full.json` inside archive), employees matched (login → national ID → email → ID+role) or auto-created, record `user_id` remapping, settings merged instead of replaced, partial restores, detailed restore report |
