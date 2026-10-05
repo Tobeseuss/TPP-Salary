@@ -14,6 +14,7 @@ from ..database import Database
 from ..store import Store
 from ..sync_engine import SyncEngine
 from ..excel_backup import ExcelBackupManager
+from ..backup_core import BackupCore
 from .. import jalali as J
 from .pages.dashboard import DashboardPage
 from .pages.register import RegisterPage
@@ -23,6 +24,10 @@ from .pages.centers import CentersPage
 from .pages.reports import ReportsPage
 from .pages.sync_page import SyncPage
 from .pages.settings_page import SettingsPage
+from .pages.payslips import PayslipsPage
+from .pages.bankfiche import BankFichePage
+from .pages.backup_page import BackupPage
+from .pages.annual import AnnualPage
 
 
 class Bus(QObject):
@@ -38,9 +43,13 @@ class MainWindow(QMainWindow):
         ("dashboard", "داشبورد"),
         ("register", "ثبت حقوق"),
         ("records", "لیست حقوق"),
+        ("payslips", "فیش‌های حقوقی"),
+        ("bankfiche", "فیش بانکی"),
         ("employees", "کارمندان"),
         ("centers", "مراکز و بانک‌ها"),
         ("reports", "گزارش‌ها"),
+        ("annual", "گزارش سالانه مراکز"),
+        ("backup", "پشتیبان‌گیری و بازگردانی"),
         ("sync", "همگام‌سازی"),
         ("settings", "تنظیمات"),
     ]
@@ -64,6 +73,9 @@ class MainWindow(QMainWindow):
         self.backup_mgr = ExcelBackupManager(self.db, self.store, app_dir)
         self.db.add_write_listener(self.backup_mgr.on_data_write)
         self.backup_mgr.start()
+
+        # نسخه 1.8.0: پشتیبان JSON/ZIP دستی + بازگردانی (قالب هم‌سان با افزونه)
+        self.backup_core = BackupCore(self.db, self.store, app_dir)
 
         self.setWindowTitle("حقوق و دستمزد — نسخه آفلاین")
         self.resize(1240, 760)
@@ -146,9 +158,13 @@ class MainWindow(QMainWindow):
             "dashboard": DashboardPage(self),
             "register": RegisterPage(self),
             "records": RecordsPage(self),
+            "payslips": PayslipsPage(self),
+            "bankfiche": BankFichePage(self),
             "employees": EmployeesPage(self),
             "centers": CentersPage(self),
             "reports": ReportsPage(self),
+            "annual": AnnualPage(self),
+            "backup": BackupPage(self),
             "sync": SyncPage(self),
             "settings": SettingsPage(self),
         }

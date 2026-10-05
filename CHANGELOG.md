@@ -3,6 +3,46 @@
 > نسخه‌های جدید در بالای همین فایل به فارسی ثبت می‌شوند. خلاصه انگلیسی همه نسخه‌ها در ادامه آمده است.
 > New entries are added in Persian at the top; an English summary of every release follows below.
 
+## 1.8.0 — 1405/07/14
+
+درخواست کاربر: «خروجی pdf در نسخه پایتون بسیار افتضاح هست و به بازنویسی کامل دارد و بسیار ناقص و نادرست نمایش داده می‌شود، قسمت دریافت فیش‌های حقوقی و فیش بانک در نسخه پایتون وجود ندارد، قابلیت‌های پشتیبان‌گیری و بازگردانی پشتیبان در نسخه پایتون تعریف نشده است، همچنین در هر دو نسخه پلاگین و پایتون می‌خواهم بخشی به عنوان گزارش سالانه مراکز داشته باشم که در واقع گزارش لیست حقوق یک مرکز را در ماه‌های مختلف یک سال در قالب چندین شیت درون یک فایل اکسل خروجی می‌دهد».
+
+### گزارش سالانه مراکز (جدید — در هر دو نسخه)
+- **افزونه**: زیرمنوی جدید «گزارش سالانه مراکز» — انتخاب سال + مرکز، جدول جمع ماهانه (تعداد فیش، ناخالص، مشمول بیمه، بیمه سهم کارمند، سایر کسورات، خالص) + سطر «جمع سال» + دکمه خروجی اکسل چندشیتی؛ توابع قابل‌تست `annual_stats()` و `build_annual_xlsx()`
+- **قالب اکسل**: شیت «جمع سال» (آمار ۱۲ ماه + جمع کل) + به‌ازای هر ماه دارای رکورد یک شیت جداگانه با نام همان ماه، با همان قالب ستونی 1.6.1 (سطر ۱ عنوان، سطر ۲ واحد پول، سطر ۴ هدر «عناوین» + نام کارمندان به‌عنوان ستون، سطرها = عناوین حقوق؛ حذف فیلدهای فقط‌محاسباتی و همه‌صفر — هم‌سان 1.7.3)
+- **نرم‌افزار پایتون**: صفحه جدید «گزارش سالانه مراکز» با همان قالب اکسل (openpyxl) — کاملاً هم‌سان با افزونه
+
+### بازنویسی کامل موتور PDF نرم‌افزار پایتون
+- PDF قبلی با QTextDocument/HTML ساخته می‌شد و جدول‌ها ناقص/نادرست شکسته می‌شدند — اکنون PDF برداری مستقیم با `QPainter/QPdfWriter` در ماژول جدید `app/pdf_engine.py` ترسیم می‌شود
+- شکل‌دهی حروف فارسی توسط موتور متن Qt (HarfBuzz) — کامل و درست؛ فونت **Vazirmatn همراه برنامه** (`assets/fonts`)
+- اندازه ستون‌ها بر اساس محتوای واقعی اندازه‌گیری و در عرض صفحه «فیت» می‌شود؛ جهت کاغذ خودکار (بیش از ۴ کارمند ← افقی)
+- جدول چندصفحه‌ای با **تکرار سربرگ در هر صفحه** + شماره صفحه + تاریخ چاپ؛ همه‌چیز Bold و حداقل 10pt (سیاست 1.7.1 افزونه)؛ ارقام انگلیسی با جداکننده هزارگان؛ منفی قرمز
+- سه قالب آینه PDF افزونه: گزارش لیست حقوق (A4)، فیش بانکی (A4)، فیش حقوقی تکی (A5 با اطلاعات کارمند، جدول جزئیات، امضاها، تاریخ چاپ)
+- خروجی PDF صفحه «گزارش‌ها» به موتور جدید منتقل شد؛ نمایش فیلدهای متنی (مثل گروه بیمه) در جدول و PDF گزارش هم اصلاح شد
+
+### بخش «فیش‌های حقوقی» در نرم‌افزار پایتون (جدید — هم‌سان افزونه)
+- فیلتر سال/ماه/مرکز ← فهرست فیش‌های دوره (کارمند، مرکز، خالص پرداختی)
+- «مشاهده / چاپ» هر فیش ← PDF A5 در نمایشگر پیش‌فرض سیستم
+- «دریافت ZIP فیش‌های همه کارکنان» ← هر فیش یک PDF مجزا در یک ZIP (نام فایل = نام کارمند)
+- فیلدهای چاپی آینه `payslip_rows` افزونه: بدون فیلدهای فقط‌محاسباتی و بدون مقادیر عددی صفر
+
+### بخش «فیش بانکی» در نرم‌افزار پایتون (جدید — هم‌سان افزونه)
+- فیلتر سال/ماه/مرکز/بانک ← کارکنانی که در دوره حقوق ثبت‌شده و در بانک انتخابی شماره حساب دارند (حساب/شبا از پروفایل کارمند که با همگام‌سازی از سایت می‌آید)
+- پیش‌نمایش جدول + جمع خالص + خروجی اکسل (همان ستون‌بندی افزونه) و PDF (قالب `build_bank_pdf` افزونه)
+
+### بخش «پشتیبان‌گیری و بازگردانی» در نرم‌افزار پایتون (جدید)
+- پشتیبان **JSON کامل** و **بسته ZIP** (`full.json` + `employees.json` + `records.json`) — قالب هم‌سان با بکاپ افزونه (`class-tppsalary-backup.php`)
+- بازگردانی از فایل JSON/ZIP (خودی **یا بکاپ افزونه**) با پیش‌نمایش شمارش بخش‌ها و تأیید صریح
+- تطبیق خودکار کارمندان (کد ملی ← شناسه ← نام کاربری ← نام) یا ساخت کارمند جدید؛ نگاشت `user_id` همه رکوردها به کارمند واقعی؛ حفظ شناسه‌های اصلی مراکز/بانک‌ها/رکوردها؛ پالایش تنظیمات (شرکت/واحد پول/فرمول‌ها)
+- پاک‌سازی صف ارسال پس از بازگردانی (هم‌سان معنای «جایگزینی داده») + فهرست آخرین فایل‌های پشتیبان (پوشه `backups` و `excel`)
+- پشتیبان اکسل آنی 1.7.5 سر جایش است و در همین صفحه هم فهرست می‌شود
+
+### تست و کیفیت
+- `scripts/test_fixes_180.php` جدید (۳۳ ادعا): رندر صفحه، `annual_stats`، اکسل چندشیتی (شمارش شیت‌ها از workbook.xml)، قالب ستونی شیت ماه، حذف فیلدهای فقط‌محاسباتی/همه‌صفر
+- `scripts/test_pyapp_180.py` جدید (۵۵+ ادعا، offscreen): موتور PDF (سه قالب + چندصفحه‌ای)، صفحه فیش‌ها + ZIP عمده، فیش بانکی + اکسل/PDF، گزارش سالانه + اکسل چندشیتی، پشتیبان JSON/ZIP + بازگردانی کامل + بازگردانی بکاپ افزونه (سازگاری قالب)
+- رگرسیون کامل سبز: ۳۰ تست PHP + `test_pyapp_sync` + `test_api_antibot` + `pyapp_attr_check` (۲۷ فایل) + pyflakes صفر + `pyapp_smoke` (**۱۲ صفحه / ۴۵ دکمه** — از ۸ صفحه/۳۳ دکمه)
+- بسته‌بندی 1.8.0 با شمار فایل جدید (۱۰۳/۱۰۸/۳۳ — افزودن `pdf_engine.py`، `backup_core.py`، ۴ صفحه UI جدید و ۲ فونت Vazirmatn به بسته پایتون)
+
 ## 1.7.9 — 1405/07/13
 
 درخواست کاربر: «در صفحه ثبت حقوق میخواهم هم در پلاگین و هم در نرم افزار پایتون به صورت پیشفرض، در صورتی که برای ماه قبل کارمند حقوقی ثبت شده باشد، حقوق ماه جدید نیز در فرم نمایش داده شده مطابق حقوق ماه قبل تکمیل شده باشد … در نرم افزار پایتون شروط و محاسبات خودکار انجام نمی شود و نمیتوان مثلا با تغییر تعداد فرزند، حق اولاد را محاسبه کرد … فایل اکسل خروجی می بایست به صورت ستونی (عنوان ستون نام کارمند و ردیف ها عناوین حقوقی او) باشد … مطمئن شوی که نسخه آفلاین دقیقا مطابق نسخه آنلاین عمل میکند».
@@ -74,6 +114,7 @@
 
 | Version | Highlights |
 |---|---|
+| 1.8.0 | **Annual centers report in BOTH plugin & Python**: one center's salary list across the months of a year as a multi-sheet Excel (a "جمع سال" summary sheet + one columnar sheet per month with records, mirroring the 1.6.1 layout). **Complete Python PDF rewrite**: vector PDF drawn directly with QPainter/QPdfWriter (bundled Vazirmatn, HarfBuzz shaping, real column sizing & page-fit, repeated table header on every page, page numbers, A4 report / A4 bank slip / A5 payslip layouts mirroring the plugin) replacing the broken QTextDocument/HTML output. **New Python pages**: «فیش‌های حقوقی» (payslip list, single PDF view/print, bulk ZIP) and «فیش بانکی» (bank deposit list from synced employee profiles, Excel + PDF). **New Python backup/restore**: full JSON & ZIP bundles in the plugin's backup format (full/employees/records), restore from own or plugin backups with employee auto-matching (national ID → login → name) and record user_id remapping. Regression: 30 PHP suites + 6 Python suites + smoke (12 pages / 45 buttons) all green |
 | 1.7.9 | Full offline/online parity: the salary form (plugin **and** Python app) auto-fills from the previous month's payslip by default (green notice, manual-flag & insurable-mode carry-over, Farvardin → Esfand); live auto-recalculation in the Python app (children count → child allowance) mirroring TPP.recalc; Python edit mode now loads the saved period record; employee dialog & wizard employee list no longer overflow/under-size (QScrollArea + QStackedWidget); Python Excel backup rewritten into the plugin's columnar format (employees as columns, salary items as rows, one sheet per period+center, CALC_ONLY/all-zero fields dropped, `#,##0;[Red]-#,##0`); fixed plugin prefill float-cast corruption (250,000,000 → 250) via `values_raw` |
 | 1.7.8 | Auto-sync of 14 employee profile fields from the latest issued payslip (direct + renamed + derived-rate mappings, latest-period wins, re-sync after single/bulk delete, covers wizard/bulk-import/offline/REST paths, dashboard note, dev filter/action) + fixed legacy bug that zeroed the textual "insurance group" in every payslip payload |
 | 1.7.7 | Employee panel `[tpp_salary_panel]` redesign: stat cards (count / latest period / total net), year grouping with collapsible sections, period + "new" + center badges, payslips before the bank form, new-tab links with `rel=noopener`, friendly empty state, Sheba hint, placeholders, green save button, responsive tables |

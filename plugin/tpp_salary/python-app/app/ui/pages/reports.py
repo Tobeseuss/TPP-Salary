@@ -3,18 +3,17 @@
 
 خروجی اکسل ستونی (هم‌سان با نسخه 1.6.1 افزونه):
 سطر ۱ عنوان، سطر ۲ واحد، سطر ۴ هدر ستونی (عناوین + نام کارمندان) و سطرهای بعدی فقط عناوین.
-خروجی PDF با چاپ Qt (RTL کامل).
+خروجی PDF — نسخه 1.8.0: موتور برداری جدید (app/pdf_engine.py).
 """
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QTextDocument
-from PySide6.QtPrintSupport import QPrinter
 from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel,
     QMessageBox, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
 from ... import jalali as J
+from ... import pdf_engine as PE
 
 YEARS = list(range(1399, 1407))
 SUMMARY_KEYS = ["gross", "insurable", "insurance_deduct", "other_deductions", "net"]
@@ -106,7 +105,6 @@ class ReportsPage(QFrame):
         center_id = self.cmb_center.currentData() or 0
 
         records = self.win.store.period_records(jyear, jmonth, center_id)
-        fa = self.win.store.use_fa_digits()
         self._title_meta = "%s — %s — %s" % (
             self.win.store.kv_company() or "حقوق و دستمزد",
             J.period_label(jyear, jmonth),
@@ -184,13 +182,25 @@ class ReportsPage(QFrame):
             self.table.setItem(r, 0, item)
             for c, (eid, _name) in enumerate(self._emps):
                 val = row["values"].get(eid)
-                txt = J.format_money(val, fa) if val is not None else "—"
+                txt = self._fmt(val)
                 it = QTableWidgetItem(txt)
                 it.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(r, c + 1, it)
         self.table.resizeColumnsToContents()
         if not self._emps:
             self.meta_label.setText("رکوردی برای این دوره یافت نشد.")
+
+    @staticmethod
+    def _fmt(val):
+        """عدد → مبلغ قالب‌بندی‌شده؛ متن (مثل گروه بیمه) → خود رشته."""
+        if val is None:
+            return "—"
+        if isinstance(val, str):
+            try:
+                return J.format_money(float(J.en_digits(val).replace(",", "")))
+            except (TypeError, ValueError):
+                return val
+        return J.format_money(val)
 
     # ---------------- خروجی اکسل ستونی ----------------
 
@@ -239,53 +249,31 @@ class ReportsPage(QFrame):
         except Exception as exc:  # noqa: BLE001
             QMessageBox.warning(self, "خروجی اکسل", "ذخیره ناموفق: %s" % str(exc)[:120])
 
-    # ---------------- خروجی PDF ----------------
+    # ---------------- خروجی PDF — موتور جدید 1.8.0 ----------------
 
     def export_pdf(self):
         if not self._rows:
             QMessageBox.information(self, "خروجی", "ابتدا گزارش را بسازید (نمایش گزارش).")
             return
-        path, _ = QFileDialog.getSaveFileName(self, "ذخیره PDF", "salary-report.pdf", "PDF (*.pdf)")
+        default = "salary-report-%s-%02d.pdf" % (
+            YEARS[self.cmb_year.currentIndex()], self.cmb_month.currentIndex() + 1)
+        path, _ = QFileDialog.getSaveFileName(self, "ذخیره PDF", default, "PDF (*.pdf)")
         if not path:
             return
-        fa = self.win.store.use_fa_digits()
-
-        def money(v):
-            return J.format_money(v, fa) if v is not None else "—"
-
-        html = ['<html dir="rtl"><head><meta charset="utf-8"><style>'
-                # نسخه 1.7.1: همه فونت‌ها Bold و حداقل 10pt (13.3px) — چاپ خوانا
-                "body{font-family:'Vazirmatn','Segoe UI',Tahoma; direction:rtl; font-weight:bold;}"
-                "h1{font-size:20px; margin:0 0 5px 0;} .meta{font-size:13.5px; color:#444; margin-bottom:10px;}"
-                "table{border-collapse:collapse; width:100%; font-size:14px;}"
-                "th,td{border:1px solid #999; padding:4px 6px; text-align:center;}"
-                "th{background:#eee;} td.t{text-align:right; font-weight:bold;}"
-                "</style></head><body>"]
-        html.append("<h1>%s</h1>" % (self.win.store.kv_company() or "گزارش لیست حقوق"))
-        html.append('<div class="meta">دوره: %s — مرکز: %s</div>' % (
-            J.period_label(YEARS[self.cmb_year.currentIndex()], self.cmb_month.currentIndex() + 1),
-            self.cmb_center.currentText()))
-        html.append("<table><tr><th>عنوان حقوقی</th>")
-        for _eid, name in self._emps:
-            html.append("<th>%s</th>" % name)
-        html.append("</tr>")
-        for row in self._rows:
-            html.append("<tr><td class='t'>%s</td>" % row["label"])
-            for eid, _n in self._emps:
-                html.append("<td>%s</td>" % money(row["values"].get(eid)))
-            html.append("</tr>")
-        html.append("</table></body></html>")
-
-        doc = QTextDocument()
-        doc.setHtml("".join(html))
-        printer = QPrinter(QPrinter.HighResolution)
-        printer.setPageOrientation(self._orientation())
-        printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setOutputFileName(path)
-        doc.print_(printer)
-        QMessageBox.information(self, "خروجی PDF", "فایل ذخیره شد:\n%s" % path)
-
-    def _orientation(self):
-        from PySide6.QtGui import QPageLayout
-        # ستون‌های زیاد → افقی
-        return QPageLayout.Landscape if len(self._emps) > 4 else QPageLayout.Portrait
+        # نسخه 1.8.0: PDF برداری با موتور جدید (فونت Vazirmatn، سربرگ تکرارشو،
+        # شکستن صفحه سالم، سطرهای خلاصه Bold) — آینه PDF افزونه.
+        rows_data = [
+            (row["label"], row["values"], row["label"] in SUMMARY_LABELS.values())
+            for row in self._rows
+        ]
+        jyear = YEARS[self.cmb_year.currentIndex()]
+        jmonth = self.cmb_month.currentIndex() + 1
+        center_label = self.cmb_center.currentText() if (self.cmb_center.currentData() or 0) else "همه مراکز"
+        title = self.win.store.kv_company() or "گزارش لیست حقوق"
+        meta = ["دوره: %s — مرکز: %s — واحد: %s" % (
+            J.period_label(jyear, jmonth), center_label, self.win.store.kv_currency() or "ریال")]
+        try:
+            PE.write_report_pdf(path, self._emps, rows_data, title, meta)
+            QMessageBox.information(self, "خروجی PDF", "فایل ذخیره شد:\n%s" % path)
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.warning(self, "خروجی PDF", "ساخت PDF ناموفق: %s" % str(exc)[:160])

@@ -33,6 +33,7 @@
 | 27 | Public GitHub repo (Tobeseuss/TPP-Salary) + Release v1.7.7 + bilingual docs convention |
 | 28 | 1.7.8 — auto-sync employee profile from latest payslip + insurance-group payload bug fix |
 | 29 | 1.7.9 — offline/online parity: auto-prefill salary form from the previous month (plugin + Python), live auto-calculation in the Python app, scroll/size UI fixes, columnar Excel backup, prefill float-cast bug fix |
+| 30 | 1.8.0 — annual centers report in both editions (multi-sheet Excel: year summary + one columnar sheet per month); complete Python PDF rewrite (vector QPainter/QPdfWriter + bundled Vazirmatn, repeated headers, fitted columns, A4 report / A4 bank slip / A5 payslip); new desktop pages — payslips (view/print + bulk ZIP), bank fiche (Excel+PDF), backup/restore (plugin-compatible JSON/ZIP with employee matching) |
 
 > جزئیات کامل هر تسک به فارسی در ادامه همین فایل آمده است. از Task 28 به بعد، ورودی‌ها دوزبانه‌اند.
 > Full Persian details for every task follow below. Entries are bilingual from Task 28 on.
@@ -713,3 +714,31 @@ Stage Summary:
 - نرم‌افزار آفلاین اکنون در چهار محور (پیش‌پر کردن از ماه قبل، محاسبهٔ زنده، بارگذاری رکورد موجود در ویرایش، اکسل ستونی) دقیقاً مطابق نسخهٔ آنلاین عمل می‌کند و هر دو مسیر با تست پوشش داده شدند | The offline app now matches the online version exactly in four axes (prev-month prefill, live recalc, existing-record load on edit, columnar Excel), each covered by tests
 - دو باگ واقعی رفع شد: خرابی float در پیش‌فیل پلاگین (250 ← 250,000,000) و بازنویسی رکورد موجود در ویرایش پایتون | Two real bugs fixed: the plugin prefill float corruption (250,000,000 → 250) and Python overwriting the saved record on edit
 - تحویل: Release v1.7.9 با سه asset (plugin 644.3KB / full 655.4KB / python-app 68.3KB) در GitHub | Delivered: v1.7.9 release with 3 assets on GitHub
+
+---
+Task ID: 30
+Agent: main
+Task: نسخه 1.8.0 — گزارش سالانه مراکز (در هر دو نسخه) + بازنویسی کامل PDF نرم‌افزار پایتون + صفحات «فیش‌های حقوقی»، «فیش بانکی» و «پشتیبان‌گیری و بازگردانی» در نرم‌افزار | v1.8.0 — annual centers report (both editions) + full Python PDF rewrite + payslips/bank-fiche/backup pages in the desktop app
+
+Work Log:
+- درخواست کاربر (۴ بند): PDF پایتون افتضاح است و بازنویسی کامل می‌خواهد؛ «دریافت فیش‌های حقوقی» و «فیش بانک» در پایتون وجود ندارد؛ پشتیبان‌گیری/بازگردانی در پایتون تعریف نشده؛ در هر دو نسخه بخش «گزارش سالانه مراکز» خواسته شد (لیست حقوق یک مرکز در ماه‌های مختلف یک سال، چند شیت در یک فایل اکسل) | User request (4 items): Python PDF is awful and needs a full rewrite; payslips and bank-fiche sections missing in Python; no backup/restore in Python; an annual centers report in BOTH editions (one center's salary list across months of a year as a multi-sheet Excel)
+- افزونه — گزارش سالانه: زیرمنوی «گزارش سالانه مراکز» (tpp-salary-annual) + هندلر admin_post_tpp_salary_annual_excel؛ صفحه رندر با فرم سال+مرکز، جدول جمع ماهانه (تعداد/ناخالص/مشمول/بیمه/سایر کسورات/خالص) و سطر «جمع سال» | Plugin annual report: new submenu + Excel handler; year+center form, per-month summary table with year total row
+- افزونه — توابع قابل‌تست: annual_stats() (SQL گروهی ماهانه) و build_annual_xlsx() — شیت «جمع سال» + یک شیت برای هر ماه دارای رکورد با قالب ستونی 1.6.1 (عناوین/نام کارمندان، حذف CALC_ONLY و همه‌صفر — هم‌سان printable_fields 1.7.3) | Testable annual_stats() + build_annual_xlsx(): «جمع سال» sheet + one columnar sheet per month with records, mirroring printable_fields
+- پایتون — موتور PDF جدید (app/pdf_engine.py): PDF قبلی QTextDocument/HTML بود و ناقص/نادرست رندر می‌شد؛ اکنون ترسیم برداری مستقیم با QPainter/QPdfWriter — فونت Vazirmatn همراه برنامه (assets/fonts)، اندازه‌گیری واقعی عرض ستون‌ها از محتوا (fit_widths)، فیت در عرض صفحه، تکرار سربرگ جدول در هر صفحه با صفحه‌بندی قطعی، شماره صفحه + تاریخ چاپ، زبرا/سطر جمع، منفی قرمز، راست‌به‌چپ واقعی (ستون ۰ سمت راست) | Python — new PDF engine: vector drawing via QPainter/QPdfWriter replacing broken HTML output; bundled Vazirmatn, content-measured column widths, deterministic pagination with repeated table headers, page numbers + print date, zebra/total rows, red negatives, true RTL
+- پایتون — سه سازنده آماده آینه افزونه: write_report_pdf (A4، افقی اگر >۴ کارمند)، write_bank_pdf (A4)، write_payslip_pdf (A5 با بلوک اطلاعات کارمند، جدول جزئیات، امضاها، تاریخ چاپ)؛ خروجی PDF صفحه گزارش‌ها به موتور جدید منتقل شد + اصلاح نمایش فیلدهای متنی در جدول گزارش | Python — three builders mirroring the plugin PDFs; reports page switched to the new engine; text-field display fixed
+- پایتون — صفحه «فیش‌های حقوقی» (payslips.py): فیلتر دوره/مرکز، فهرست فیش‌ها، «مشاهده / چاپ» (PDF در نمایشگر سیستم)، ZIP عمده همه فیش‌ها؛ فیلدهای چاپی آینه payslip_rows افزونه | Python — payslips page: period/center filter, payslip list, view/print single A5 PDF, bulk ZIP; print fields mirror payslip_rows
+- پایتون — صفحه «فیش بانکی» (bankfiche.py): بانک الزامی؛ سطرها از bank_accounts پروفایل کارمند (همگام‌شده از سایت)؛ خروجی اکسل (ستون‌بندی افزونه) + PDF | Python — bank fiche page: mandatory bank; rows from synced employee profiles; Excel + PDF exports
+- پایتون — پشتیبان/بازگردانی: app/backup_core.py — snapshot_full() با ساختار بکاپ افزونه (version/stamp/site/settings/centers/banks/fields/records/profiles)؛ create_json/create_zip (full.json + employees.json + records.json)؛ load_backup (json/zip خودی یا افزونه)؛ restore() در یک تراکنش — تطبیق کارمند (کد ملی←شناسه←login←نام) یا ساخت، نگاشت user_id رکوردها، حفظ شناسه مراکز/بانک‌ها، پالایش تنظیمات، پاک‌سازی outbox | Python — backup_core.py: plugin-format snapshot (JSON/ZIP), loader accepting own or plugin backups, single-transaction restore with employee matching + record user_id remapping + outbox reset
+- پایتون — صفحه «پشتیبان‌گیری و بازگردانی» (backup_page.py) + همگام‌سازی build→ریپو و اتصال چهار صفحه جدید در MainWindow (۱۲ صفحه ناوبری) | Python — backup page UI + 4 new pages wired into the window (12 nav pages)
+- تست‌ها: test_fixes_180.php (۳۳ ادعا — رندر/annual_stats/شمارش شیت از workbook.xml/قالب ستونی/حذف CALC_ONLY) و test_pyapp_180.py (۵۵+ ادعا — موتور PDF سه‌قالب + چندصفحه، ZIP عمده، فیش بانکی، گزارش سالانه چندشیتی، چرخه پشتیبان/بازگردانی، سازگاری بکاپ افزونه با پیلود رشته‌ای) | New tests: test_fixes_180.php (33) + test_pyapp_180.py (55+) including plugin-format restore compatibility
+- رگرسیون کامل سبز: ۳۰ تست PHP + pyapp_sync + api_antibot + attr-check (۲۷ فایل) + pyflakes ۰ + smoke (۱۲ صفحه/۴۵ دکمه) | Full regression green: 30 PHP suites + 5 Python suites + smoke (12 pages/45 buttons)
+- نسخه 1.8.0 در چهار نقطه + readme.txt/CHANGELOG/README (افزونه و ریپو، دوزبانه) + README دسکتاپ + صفحه دانلود | Version bumped in 4 places + all bilingual docs + desktop README + download page
+- بسته‌بندی package_180.py با شمار فایل جدید (۱۰۴/۱۰۹/۳۶ — +pdf_engine.py، +backup_core.py، +۴ صفحه، +۲ فونت) + همگام‌سازی build→ریپو + حذف بسته‌های 1.7.9 | Packaging with new counts (104/109/36) + build→repo sync + old zips removed
+- کامیت «1.8.0: ...» + تگ v1.8.0 + GitHub Release دوزبانه با سه asset (PAT فقط از env) | Commit + v1.8.0 tag + bilingual GitHub Release with 3 assets
+
+Stage Summary:
+- گزارش سالانه مراکز در هر دو نسخه با یک قالب اکسل چندشیتی کاملاً هم‌سان ارائه شد | Annual centers report delivered in both editions with an identical multi-sheet Excel layout
+- PDF نرم‌افزار آفلاین اکنون هم‌تراز PDF افزونه است (فارسی کامل، سربرگ تکرارشو، فیت ستون‌ها) | The desktop PDF now matches the plugin's quality (full Persian, repeated headers, fitted columns)
+- نرم‌افزار آفلاین سه بخش گمشده خود را گرفت و از نظر قالب پشتیبان با افزونه سازگار شد | The desktop app gained its three missing sections and now shares the plugin's backup format
+- Release: https://github.com/Tobeseuss/TPP-Salary/releases/tag/v1.8.0
+- فایل‌های محلی: download/tpp_salary-1.8.0-plugin.zip و tpp-salary-v1.8.0-full.zip و tpp-salary-python-app-1.8.0.zip

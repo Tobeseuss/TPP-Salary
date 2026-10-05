@@ -29,6 +29,8 @@ class TppSalary_Reports {
                 add_action( 'admin_post_tpp_salary_bank_pdf', array( __CLASS__, 'bank_pdf' ) );
                 add_action( 'admin_post_tpp_salary_bulk_zip', array( __CLASS__, 'bulk_zip' ) );
                 add_action( 'admin_post_tpp_salary_backup_download', array( __CLASS__, 'backup_download' ) );
+                /* نسخه 1.8.0: گزارش سالانه مراکز — اکسل چندشیتی (هر ماه یک شیت). */
+                add_action( 'admin_post_tpp_salary_annual_excel', array( __CLASS__, 'annual_excel' ) );
         }
 
         /**
@@ -41,6 +43,8 @@ class TppSalary_Reports {
                 add_submenu_page( 'tpp-salary', 'فیش بانکی', 'فیش بانکی', 'tpp_salary_manage', 'tpp-salary-bank-report', array( __CLASS__, 'render_bank' ) );
                 add_submenu_page( 'tpp-salary', 'فیش‌های حقوقی', 'فیش‌های حقوقی', 'tpp_salary_manage', 'tpp-salary-payslips', array( __CLASS__, 'render_payslips' ) );
                 add_submenu_page( 'tpp-salary', 'پشتیبان‌گیری', 'پشتیبان‌گیری', 'tpp_salary_manage', 'tpp-salary-backup', array( __CLASS__, 'render_backup' ) );
+                /* نسخه 1.8.0: گزارش سالانه مراکز. */
+                add_submenu_page( 'tpp-salary', 'گزارش سالانه مراکز', 'گزارش سالانه مراکز', 'tpp_salary_manage', 'tpp-salary-annual', array( __CLASS__, 'render_annual' ) );
         }
 
         /**
@@ -1234,6 +1238,277 @@ class TppSalary_Reports {
                         </table>
                 </div>
                 <?php
+        }
+
+        /*
+         * ============================================================
+         * نسخه 1.8.0 — گزارش سالانه مراکز
+         *
+         * گزارش لیست حقوق «یک مرکز» در ماه‌های مختلف «یک سال»؛
+         * خروجی اکسل چندشیتی: شیت «جمع سال» + یک شیت به‌ازای هر ماه
+         * دارای رکورد (همان قالب ستونی گزارش 1.6.1 — ستون = نام کارمند،
+         * سطر = عناوین حقوق). هم‌سان با نسخه آفلاین (برنامه پایتون).
+         * ============================================================
+         */
+
+        /**
+         * صفحه گزارش سالانه مراکز
+         *
+         * @return void
+         */
+        public static function render_annual() {
+                if ( ! tpp_salary_can_manage() ) {
+                        wp_die( 'دسترسی غیرمجاز' );
+                }
+                $today     = TppSalary_Jalali::today();
+                $jyear     = isset( $_REQUEST['jyear'] ) ? (int) $_REQUEST['jyear'] : $today[0];
+                $center_id = isset( $_REQUEST['center_id'] ) ? (int) $_REQUEST['center_id'] : 0;
+                ?>
+                <div class="wrap tpp-wrap" dir="rtl">
+                        <h1>گزارش سالانه مراکز</h1>
+                        <p class="description">گزارش لیست حقوق «یک مرکز» در ماه‌های مختلف «یک سال» — خروجی اکسل چندشیتی: به‌ازای هر ماه دارای رکورد یک شیت جداگانه در کنار شیت «جمع سال» ساخته می‌شود.</p>
+                        <form method="get" style="margin:12px 0">
+                                <input type="hidden" name="page" value="tpp-salary-annual">
+                                <select name="jyear">
+                                        <?php for ( $y = $today[0] - 6; $y <= $today[0] + 1; $y++ ) : ?>
+                                                <option value="<?php echo $y; ?>" <?php selected( $jyear, $y ); ?>><?php echo TppSalary_Jalali::digits_fa( $y ); ?></option>
+                                        <?php endfor; ?>
+                                </select>
+                                <select name="center_id" required>
+                                        <option value="">— مرکز —</option>
+                                        <?php foreach ( tpp_salary_get_centers() as $c ) : ?>
+                                                <option value="<?php echo (int) $c->id; ?>" <?php selected( $center_id, $c->id ); ?>><?php echo esc_html( $c->name ); ?></option>
+                                        <?php endforeach; ?>
+                                </select>
+                                <button class="button button-primary">جستجو</button>
+                        </form>
+                <?php
+                if ( $jyear && $center_id ) {
+                        $center = tpp_salary_get_center( $center_id );
+                        if ( ! $center ) {
+                                echo '<p>مرکز یافت نشد.</p></div>';
+                                return;
+                        }
+                        $stats = self::annual_stats( $jyear, $center_id );
+                        $currency = tpp_salary_get_setting( 'currency', 'ریال' );
+                        $total = array( 'count' => 0, 'gross' => 0.0, 'insurable' => 0.0, 'insurance_deduct' => 0.0, 'other_deductions' => 0.0, 'net' => 0.0 );
+                        foreach ( $stats as $s ) {
+                                foreach ( array( 'count', 'gross', 'insurable', 'insurance_deduct', 'other_deductions', 'net' ) as $k ) {
+                                        $total[ $k ] += ( 'count' === $k ) ? (int) $s[ $k ] : (float) $s[ $k ];
+                                }
+                        }
+                        $ex = add_query_arg( array( 'jyear' => $jyear, 'center_id' => $center_id ), admin_url( 'admin-post.php?action=tpp_salary_annual_excel' ) );
+                        ?>
+                        <p class="description">
+                                سال: <strong><?php echo TppSalary_Jalali::digits_fa( $jyear ); ?></strong>
+                                — مرکز: <strong><?php echo esc_html( $center->name ); ?></strong>
+                                — واحد: <strong><?php echo esc_html( $currency ); ?></strong>
+                                (<?php echo TppSalary_Jalali::digits_fa( count( $stats ) ); ?> ماه دارای رکورد)
+                        </p>
+                        <table class="widefat striped" dir="rtl" style="max-width:920px">
+                                <thead><tr><th>ماه</th><th>تعداد فیش</th><th>جمع ناخالص</th><th>جمع مشمول بیمه</th><th>بیمه سهم کارمند</th><th>سایر کسورات</th><th>جمع خالص پرداختی</th></tr></thead>
+                                <tbody>
+                                <?php if ( empty( $stats ) ) : ?>
+                                        <tr><td colspan="7">رکوردی برای این سال/مرکز یافت نشد.</td></tr>
+                                <?php endif; ?>
+                                <?php foreach ( $stats as $s ) : ?>
+                                        <tr>
+                                                <td><strong><?php echo esc_html( TppSalary_Jalali::month_name( $s['jmonth'] ) ); ?></strong></td>
+                                                <td><?php echo TppSalary_Jalali::digits_fa( $s['count'] ); ?></td>
+                                                <td dir="ltr"><?php echo esc_html( tpp_salary_format_number( $s['gross'] ) ); ?></td>
+                                                <td dir="ltr"><?php echo esc_html( tpp_salary_format_number( $s['insurable'] ) ); ?></td>
+                                                <td dir="ltr"><?php echo esc_html( tpp_salary_format_number( $s['insurance_deduct'] ) ); ?></td>
+                                                <td dir="ltr"><?php echo esc_html( tpp_salary_format_number( $s['other_deductions'] ) ); ?></td>
+                                                <td dir="ltr"><strong><?php echo esc_html( tpp_salary_format_number( $s['net'] ) ); ?></strong></td>
+                                        </tr>
+                                <?php endforeach; ?>
+                                <?php if ( ! empty( $stats ) ) : ?>
+                                        <tr style="background:#f0f4fb;font-weight:bold">
+                                                <td>جمع سال</td>
+                                                <td><?php echo TppSalary_Jalali::digits_fa( $total['count'] ); ?></td>
+                                                <td dir="ltr"><?php echo esc_html( tpp_salary_format_number( $total['gross'] ) ); ?></td>
+                                                <td dir="ltr"><?php echo esc_html( tpp_salary_format_number( $total['insurable'] ) ); ?></td>
+                                                <td dir="ltr"><?php echo esc_html( tpp_salary_format_number( $total['insurance_deduct'] ) ); ?></td>
+                                                <td dir="ltr"><?php echo esc_html( tpp_salary_format_number( $total['other_deductions'] ) ); ?></td>
+                                                <td dir="ltr"><?php echo esc_html( tpp_salary_format_number( $total['net'] ) ); ?></td>
+                                        </tr>
+                                <?php endif; ?>
+                                </tbody>
+                        </table>
+                        <?php if ( ! empty( $stats ) ) : ?>
+                                <p style="margin-top:12px">
+                                        <a class="button button-primary button-hero" href="<?php echo esc_url( $ex ); ?>">خروجی اکسل سالانه (چندشیتی)</a>
+                                </p>
+                        <?php endif; ?>
+                        <?php
+                }
+                echo '</div>';
+        }
+
+        /**
+         * آمار ماهانه یک سال/مرکز — پایه گزارش سالانه (نسخه 1.8.0)
+         *
+         * @param int $jyear    سال.
+         * @param int $center_id مرکز.
+         * @return array<int,array> هر عضو: jmonth/count/gross/insurable/insurance_deduct/other_deductions/net
+         */
+        public static function annual_stats( $jyear, $center_id ) {
+                global $wpdb;
+                $table = $wpdb->prefix . 'tpp_salary_records';
+                $rows  = $wpdb->get_results( $wpdb->prepare(
+                        "SELECT jmonth, COUNT(*) AS count,
+                                SUM(gross) AS gross, SUM(insurable) AS insurable,
+                                SUM(insurance_deduct) AS insurance_deduct,
+                                SUM(other_deductions) AS other_deductions, SUM(net) AS net
+                         FROM {$table}
+                         WHERE jyear = %d AND center_id = %d
+                         GROUP BY jmonth ORDER BY jmonth ASC", // phpcs:ignore
+                        $jyear,
+                        $center_id
+                ) );
+                $out = array();
+                foreach ( (array) $rows as $r ) {
+                        $out[] = array(
+                                'jmonth'           => (int) $r->jmonth,
+                                'count'            => (int) $r->count,
+                                'gross'            => (float) $r->gross,
+                                'insurable'        => (float) $r->insurable,
+                                'insurance_deduct' => (float) $r->insurance_deduct,
+                                'other_deductions' => (float) $r->other_deductions,
+                                'net'              => (float) $r->net,
+                        );
+                }
+                return $out;
+        }
+
+        /**
+         * خروجی اکسل گزارش سالانه — چندشیتی (نسخه 1.8.0)
+         *
+         * @return void
+         */
+        public static function annual_excel() {
+                if ( ! tpp_salary_can_manage() ) {
+                        wp_die( 'دسترسی غیرمجاز' );
+                }
+                $jyear     = isset( $_REQUEST['jyear'] ) ? (int) $_REQUEST['jyear'] : 0;
+                $center_id = isset( $_REQUEST['center_id'] ) ? (int) $_REQUEST['center_id'] : 0;
+                if ( ! $jyear || ! $center_id ) {
+                        wp_die( 'سال و مرکز را انتخاب کنید' );
+                }
+                $center = tpp_salary_get_center( $center_id );
+                if ( ! $center ) {
+                        wp_die( 'مرکز نامعتبر' );
+                }
+                $xlsx = self::build_annual_xlsx( $jyear, $center_id );
+                tpp_salary_clean_output(); // حذف خروجی مزاحم — جلوگیری از فایل خراب.
+                nocache_headers();
+                header( 'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' );
+                header( 'Content-Disposition: attachment; filename="annual-' . $jyear . '-center' . $center_id . '.xlsx"' );
+                echo $xlsx->to_string(); // phpcs:ignore
+                exit;
+        }
+
+        /**
+         * ساخت اکسل گزارش سالانه — شیت «جمع سال» + یک شیت به‌ازای هر ماه دارای رکورد
+         *
+         * قالب شیت ماه‌ها همان قالب ستونی 1.6.1 است (سطر ۱ عنوان، سطر ۲ واحد پول،
+         * سطر ۴ هدر «عناوین» + نام کارمندان به‌عنوان ستون، سطرها = عناوین حقوق؛
+         * بدون فیلدهای فقط‌محاسباتی و فیلدهای همه‌صفر دوره — هم‌سان 1.7.3).
+         *
+         * @param int $jyear    سال.
+         * @param int $center_id مرکز.
+         * @return TppSalary_Xlsx_Writer
+         */
+        public static function build_annual_xlsx( $jyear, $center_id ) {
+                $center      = tpp_salary_get_center( (int) $center_id );
+                $center_name = $center ? $center->name : 'مرکز';
+                $company     = tpp_salary_get_setting( 'company_name' );
+                $currency    = tpp_salary_get_setting( 'currency', 'ریال' );
+
+                $xlsx = new TppSalary_Xlsx_Writer();
+
+                /* --- شیت ۱: جمع سال --- */
+                $xlsx->add_sheet( 'جمع سال' );
+                $stats = self::annual_stats( $jyear, $center_id );
+                $head  = array( 'ماه', 'تعداد فیش', 'جمع ناخالص', 'جمع مشمول بیمه', 'بیمه سهم کارمند', 'سایر کسورات', 'جمع خالص پرداختی' );
+                $xlsx->merge( 1, 1, 1, count( $head ) );
+                $xlsx->set( 1, 1, ( $company ? $company . ' — ' : '' ) . 'گزارش سالانه ' . TppSalary_Jalali::digits_fa( $jyear ) . ' — مرکز ' . $center_name, 'title' );
+                $xlsx->merge( 2, 1, 2, count( $head ) );
+                $xlsx->set( 2, 1, 'واحد: ' . $currency, 'header' );
+                foreach ( $head as $i => $h ) {
+                        $xlsx->set( 4, 1 + $i, $h, 'header' );
+                }
+                $row = 5;
+                $total = array( 'count' => 0, 'gross' => 0.0, 'insurable' => 0.0, 'insurance_deduct' => 0.0, 'other_deductions' => 0.0, 'net' => 0.0 );
+                foreach ( $stats as $s ) {
+                        $xlsx->set( $row, 1, TppSalary_Jalali::month_name( $s['jmonth'] ), 'label' );
+                        $xlsx->set( $row, 2, $s['count'], 'text' );
+                        $xlsx->set( $row, 3, $s['gross'], ( $s['gross'] < 0 ) ? 'num_neg' : 'num' );
+                        $xlsx->set( $row, 4, $s['insurable'], ( $s['insurable'] < 0 ) ? 'num_neg' : 'num' );
+                        $xlsx->set( $row, 5, $s['insurance_deduct'], ( $s['insurance_deduct'] < 0 ) ? 'num_neg' : 'num' );
+                        $xlsx->set( $row, 6, $s['other_deductions'], ( $s['other_deductions'] < 0 ) ? 'num_neg' : 'num' );
+                        $xlsx->set( $row, 7, $s['net'], ( $s['net'] < 0 ) ? 'num_neg' : 'num' );
+                        $row++;
+                        foreach ( array( 'count', 'gross', 'insurable', 'insurance_deduct', 'other_deductions', 'net' ) as $k ) {
+                                $total[ $k ] += ( 'count' === $k ) ? (int) $s[ $k ] : (float) $s[ $k ];
+                        }
+                }
+                if ( $stats ) {
+                        $xlsx->set( $row, 1, 'جمع سال', 'total' );
+                        $xlsx->set( $row, 2, $total['count'], 'total' );
+                        $xlsx->set( $row, 3, $total['gross'], 'total' );
+                        $xlsx->set( $row, 4, $total['insurable'], 'total' );
+                        $xlsx->set( $row, 5, $total['insurance_deduct'], 'total' );
+                        $xlsx->set( $row, 6, $total['other_deductions'], 'total' );
+                        $xlsx->set( $row, 7, $total['net'], 'total' );
+                }
+                $widths = array( 'A' => 12, 'B' => 12, 'C' => 20, 'D' => 20, 'E' => 18, 'F' => 18, 'G' => 22 );
+                foreach ( $widths as $col => $w ) {
+                        $xlsx->set_width( $col, $w );
+                }
+                $xlsx->freeze( 'A5' );
+
+                /* --- شیت ماه‌ها: فقط ماه‌های دارای رکورد --- */
+                foreach ( $stats as $s ) {
+                        $records = tpp_salary_get_period_records( $jyear, $s['jmonth'], $center_id );
+                        if ( ! $records ) {
+                                continue;
+                        }
+                        $sheet_name = TppSalary_Jalali::month_name( $s['jmonth'] );
+                        $fields     = self::printable_fields( $records );
+                        $xlsx->add_sheet( $sheet_name );
+                        $ncols = 1 + count( $records );
+                        $xlsx->merge( 1, 1, 1, $ncols );
+                        $xlsx->set( 1, 1, ( $company ? $company . ' — ' : '' ) . 'لیست حقوق ' . TppSalary_Jalali::month_name( $s['jmonth'] ) . ' ' . TppSalary_Jalali::digits_fa( $jyear ) . ' — ' . $center_name, 'title' );
+                        $xlsx->merge( 2, 1, 2, $ncols );
+                        $xlsx->set( 2, 1, 'واحد: ' . $currency, 'header' );
+                        $xlsx->set( 4, 1, 'عناوین', 'header' );
+                        foreach ( $records as $ci => $r ) {
+                                $u = get_userdata( $r->user_id );
+                                $xlsx->set( 4, 2 + $ci, $u ? $u->display_name : '?', 'header' );
+                        }
+                        $r2 = 5;
+                        foreach ( $fields as $f ) {
+                                $xlsx->set( $r2, 1, $f->label, 'label' );
+                                foreach ( $records as $ci => $r ) {
+                                        $payload = tpp_salary_record_payload( $r );
+                                        $val     = isset( $payload[ $f->field_key ] ) ? $payload[ $f->field_key ] : '';
+                                        if ( 'number' === $f->field_type ) {
+                                                $xlsx->set( $r2, 2 + $ci, (float) $val, ( (float) $val < 0 ) ? 'num_neg' : 'num' );
+                                        } else {
+                                                $xlsx->set( $r2, 2 + $ci, (string) $val, 'text' );
+                                        }
+                                }
+                                $r2++;
+                        }
+                        $xlsx->set_width( 'A', 26 );
+                        for ( $c = 2; $c <= $ncols; $c++ ) {
+                                $xlsx->set_width( TppSalary_Xlsx_Writer::col_letter( $c ), 22 );
+                        }
+                        $xlsx->freeze( 'A5' );
+                }
+
+                return $xlsx;
         }
 }
 }

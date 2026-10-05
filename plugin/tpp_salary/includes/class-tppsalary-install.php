@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * اجرای DDL جداول رد می‌شود تا خطای SQL مهلک هرگز رخ ندهد.
  */
 if ( ! defined( 'TPP_SALARY_INSTALL_BUILD' ) ) {
-        define( 'TPP_SALARY_INSTALL_BUILD', '1.7.9' );
+        define( 'TPP_SALARY_INSTALL_BUILD', '1.8.0' );
 }
 
 /**
