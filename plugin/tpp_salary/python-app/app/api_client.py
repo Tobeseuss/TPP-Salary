@@ -81,13 +81,13 @@ class ApiClient(object):
         if host:
             self._session.cookies.set(CHALLENGE_COOKIE, value, domain=host, path="/")
 
-    def _request(self, method, path, json_body=None):
+    def _request(self, method, path, json_body=None, params=None):
         for attempt in range(MAX_ATTEMPTS):
             url = self._url(path)
             try:
                 resp = self._session.request(
                     method, url, headers=self._headers(),
-                    json=json_body, timeout=TIMEOUT,
+                    json=json_body, params=params, timeout=TIMEOUT,
                 )
             except requests.exceptions.Timeout:
                 raise ApiError("مهلت اتصال به سرور تمام شد")
@@ -138,11 +138,18 @@ class ApiClient(object):
     def ping(self):
         return self._request("GET", "/ping")
 
-    def bundle(self):
+    def bundle(self, rev=None):
+        """دریافت بسته داده — نسخه 1.8.1: با rev، اگر داده سرور تغییر نکرده باشد
+        فقط پاسخ سبک {"not_modified": true, "revision": ...} برمی‌گردد (رفع بار سرور)."""
+        if rev:
+            return self._request("GET", "/bundle", params={"rev": str(rev)})
         return self._request("GET", "/bundle")
 
-    def push(self, ops):
-        return self._request("POST", "/sync", json_body={"ops": ops})
+    def push(self, ops, rev=None):
+        body = {"ops": ops}
+        if rev:
+            body["rev"] = str(rev)
+        return self._request("POST", "/sync", json_body=body)
 
     # ---------- تشخیص ----------
 

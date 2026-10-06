@@ -34,6 +34,7 @@
 | 28 | 1.7.8 — auto-sync employee profile from latest payslip + insurance-group payload bug fix |
 | 29 | 1.7.9 — offline/online parity: auto-prefill salary form from the previous month (plugin + Python), live auto-calculation in the Python app, scroll/size UI fixes, columnar Excel backup, prefill float-cast bug fix |
 | 30 | 1.8.0 — annual centers report in both editions (multi-sheet Excel: year summary + one columnar sheet per month); complete Python PDF rewrite (vector QPainter/QPdfWriter + bundled Vazirmatn, repeated headers, fitted columns, A4 report / A4 bank slip / A5 payslip); new desktop pages — payslips (view/print + bulk ZIP), bank fiche (Excel+PDF), backup/restore (plugin-compatible JSON/ZIP with employee matching) |
+| 31 | 1.8.1 — site slowness fix: lightweight revision-based sync (cheap COUNT/MAX/SUM(LENGTH) hash; tiny not_modified response when unchanged; client rev on /bundle & /sync; Python light-pull without local rebuild; fully backward compatible), upgrade anti-storm lock (10-min transient), cron backup hardening (15-min lock, memory/time raise, try/catch, auto ZIP without plugin-folder archive), N+1 elimination (cache_users priming, backup Excel name maps, panel center map), new "کارایی و منابع" perf block in System Status tab. New tests test_perf_181.php (35+) & test_pyapp_181.py (20+); full regression green (31 PHP + 6 Python suites + attr-check + pyflakes + smoke 12/45); packaging 104/109/36 + tag v1.8.1 + bilingual Release |
 
 > جزئیات کامل هر تسک به فارسی در ادامه همین فایل آمده است. از Task 28 به بعد، ورودی‌ها دوزبانه‌اند.
 > Full Persian details for every task follow below. Entries are bilingual from Task 28 on.
@@ -742,3 +743,28 @@ Stage Summary:
 - نرم‌افزار آفلاین سه بخش گمشده خود را گرفت و از نظر قالب پشتیبان با افزونه سازگار شد | The desktop app gained its three missing sections and now shares the plugin's backup format
 - Release: https://github.com/Tobeseuss/TPP-Salary/releases/tag/v1.8.0
 - فایل‌های محلی: download/tpp_salary-1.8.0-plugin.zip و tpp-salary-v1.8.0-full.zip و tpp-salary-python-app-1.8.0.zip
+
+---
+Task ID: 31
+Agent: main
+Task: نسخه 1.8.1 — رفع کندی سایت (گزارش کاربر: «از وقتی این پلاگین را فعال کرده ام وبسایتم بسیار کند هست و بالا نمی آید») | v1.8.1 — site slowness fix
+
+Work Log:
+- ممیزی کارایی کل افزونه (هوک‌های هر-درخواست، DDL، سشن/قفل، تماس HTTP، کرون، N+1) — مسیرهای هر-درخواست سبک بودند؛ چهار منشا واقعی بار شناسایی و رفع شد | Full perf audit (per-request hooks, DDL, sessions/locks, HTTP calls, cron, N+1) — per-request paths were light; four real load sources found and fixed
+- ۱) همگام‌سازی سبک Revision (مهم‌ترین): همگام‌سازی دوره‌ای برنامه دسکتاپ (پیش‌فرض ۶۰ ثانیه) هر بار بسته کامل تا ۵۰٬۰۰۰ رکورد را بازسازی/منتقل می‌کرد؛ اکنون TppSalary_Api::revision() هش ارزان از COUNT/MAX/SUM(LENGTH) رکوردها/مراکز/بانک‌ها/فیلدها + متاهای پروفایل/کد ملی/موبایل/قطع‌همکاری + COUNT/MAX کاربران + هش تنظیمات + نسخه می‌سازد؛ کلاینت rev را در /bundle?rev= و بدنه /sync می‌فرستد و سرور در نبود تغییر فقط not_modified چند بایتی می‌دهد؛ برنامه پایتون پاسخ سبک را مصرف و revision را در kv ذخیره می‌کند؛ هیچ مسیر نوشتنی نیاز به شمارنده ندارد و سازگاری دوجهته کامل است | 1) Lightweight revision sync (biggest win): periodic 60s desktop sync rebuilt a full bundle (up to 50k records) every time; now a cheap revision hash gates the heavy rebuild — server answers tiny not_modified when unchanged; Python client consumes it; no write-path counter needed; fully backward compatible
+- ۲) قفل ضد طوفان ارتقا: در maybe_upgrade اگر ذخیره db_version ناموفق می‌ماند (پر بودن دیسک/خطای نوشتن)، کل مسیر سنگین upgrade در «هر درخواست» اجرا می‌شد؛ قفل ترنزینت ۱۰ دقیقه‌ای گذاشته شد | 2) Upgrade anti-storm lock: 10-minute transient lock in maybe_upgrade
+- ۳) سخت‌سازی کرون بکاپ: قفل ۱۵ دقیقه‌ای ضد اجرای موازی + wp_raise_memory_limit + set_time_limit(600) + ignore_user_abort + try/catch؛ بکاپ خودکار ZIP دیگر پوشه افزونه را بایگانی نمی‌کند (پارامتر $include_plugin_files؛ فقط بکاپ دستی کامل است) | 3) Cron backup hardening: 15-min lock, memory/time raise, ignore_user_abort, try/catch; auto ZIP skips plugin-folder archive (manual keeps it)
+- ۴) حذف N+1: پیش‌بارگذاری کش کاربران (cache_users) در tpp_salary_get_employees، نقشه نام کارمندان/مراکز در fill_excel_records، نقشه مراکز در پنل کارمند | 4) N+1 elimination: cache_users priming in get_employees, name maps in backup Excel, center map in employee panel
+- ۵) بخش «کارایی و منابع» در تب وضعیت سیستم: حافظه/زمان PHP، WP-Cron/ALTERNATE_WP_CRON، وضعیت بکاپ خودکار و اجرای بعدی، مقیاس داده، فضای دیسک | 5) "Performance & Resources" block in System Status tab
+- تست‌های جدید: scripts/test_perf_181.php (۳۵+ ادعا) و scripts/test_pyapp_181.py (۲۰+ ادعا شامل سازگاری سرور قدیمی) | New tests: test_perf_181.php (35+) & test_pyapp_181.py (20+)
+- محیط ریست شده بود: PySide6 6.11.2 + pyflakes + openpyxl + requests در /home/z/.venv؛ فقط libEGL.so.1 از libglvnd باز شد (طبق Task 26) | Sandbox reset: PySide6 stack reinstalled; only libEGL re-extracted
+- رگرسیون کامل سبز: ۳۱ تست PHP + test_pyapp_sync + test_api_antibot (امضای FakeFlow به‌روز شد) + test_pyapp_179/180/181 + test_pdf_engine_180 + attr-check (۲۷ فایل) + pyflakes ۰ + smoke (۱۲/۴۵)؛ ادعای نسخه در ۹ اسکریپت قدیمی + APP_VERSION برنامه به 1.8.1 | Full regression green: 31 PHP + 6 Python suites + attr-check + pyflakes + smoke; version claims bumped in 9 legacy scripts + APP_VERSION
+- نگارش 1.8.1 در چهار نقطه + readme.txt + CHANGELOG.md افزونه (بخش 1.8.1 + بازسازی بخش جاافتاده 1.8.0) + README افزونه + README برنامه + صفحه دانلود | Version bumped in 4 places + all docs (incl. restoring missing 1.8.0 section) + download page
+- بسته‌بندی package_181.py (۱۰۴/۱۰۹/۳۶ فایل) + حذف بسته‌های 1.8.0 + راستی‌آزمایی داخل بسته | Packaging (104/109/36) + old zips removed + in-package verification
+- ریپوی محلی TPP-Salary در ریست سندباکس از دست رفته بود → کلون مجدد از گیت‌هاب؛ مستندات ریپو به‌روز شد | Local repo lost in reset → re-cloned from GitHub; repo docs updated
+
+Stage Summary:
+- چهار بهینه‌سازی ریشه‌ای در هر دو نسخه؛ بار همگام‌سازی دوره‌ای از چند-مگابایت در دقیقه به چند میلی‌ثانیه رسید و مسیرهای حلقوی (ارتقا/کرون) قفل شدند | Four root-cause perf fixes in both editions; periodic sync load dropped from MBs/min to milliseconds; pathological loops locked out
+- Release: https://github.com/Tobeseuss/TPP-Salary/releases/tag/v1.8.1
+- فایل‌های محلی: download/tpp_salary-1.8.1-plugin.zip و tpp-salary-v1.8.1-full.zip و tpp-salary-python-app-1.8.1.zip
+- راهنمای کاربر: تب «وضعیت سیستم ← کارایی و منابع» را بررسی کنید و برنامه دسکتاپ را نیز به 1.8.1 ارتقا دهید

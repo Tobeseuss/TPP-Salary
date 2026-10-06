@@ -3,6 +3,37 @@
 > نسخه‌های جدید در بالای همین فایل به فارسی ثبت می‌شوند. خلاصه انگلیسی همه نسخه‌ها در ادامه آمده است.
 > New entries are added in Persian at the top; an English summary of every release follows below.
 
+## 1.8.1 — 1405/07/15 — رفع کندی سایت
+
+درخواست کاربر: «از وقتی این پلاگین را فعال کرده ام وبسایتم بسیار کند هست و بالا نمی آید» — ممیزی کامل کارایی انجام شد و چهار بهینه‌سازی ریشه‌ای اعمال شد (سمت افزونه + برنامه دسکتاپ؛ سازگاری کامل با نسخه‌های قبلی در هر دو جهت).
+
+### همگام‌سازی سبک Revision (مهم‌ترین بهینه‌سازی)
+- برنامه دسکتاپ به‌طور پیش‌فرض هر ۶۰ ثانیه یک بار `/bundle` کامل می‌گرفت؛ سرور برای هر درخواست همه رکوردها (تا ۵۰٬۰۰۰ سطر) را می‌خواند و JSON چند-مگابایتی می‌ساخت = بار دائمی روی هاست‌های ضعیف
+- اکنون هر بسته یک `revision` دارد: هش ارزان از COUNT/MAX/SUM(LENGTH) رکوردها، مراکز، بانک‌ها، فیلدها، متاهای پروفایل/کد ملی/موبایل/قطع‌همکاری، COUNT/MAX کاربران + هش تنظیمات + نسخه افزونه — هیچ مسیر نوشتنی نیاز به به‌روزرسانی شمارنده ندارد و هر تغییر محتوایی هش را عوض می‌کند
+- کلاینت revision خود را در `/bundle?rev=...` و بدنه `/sync` می‌فرستد؛ در نبود تغییر، سرور فقط `{"not_modified": true}` (چند صد بایت) برمی‌گرداند
+- برنامه پایتون: پاسخ سبک مصرف می‌شود (بدون بازسازی دیتابیس محلی)، revision بعد از هر pull کامل ذخیره می‌شود و پیام «بدون تغییر» نمایش داده می‌شود
+- سازگاری دوجهته: کلاینت قدیمی + سرور جدید ✓ و کلاینت جدید + سرور قدیمی ✓ (بدون rev = بسته کامل مثل قبل)
+
+### قفل ضد طوفان ارتقا (maybe_upgrade)
+- اگر ذخیره `tpp_salary_db_version` ناموفق بماند (پر بودن دیسک، خطای نوشتن options، قطع اجرا)، مسیر سنگین upgrade پیش‌تر در «هر درخواست» اجرا می‌شد؛ اکنون قفل ترنزینت ۱۰ دقیقه‌ای بین اجراها فاصله اجباری می‌گذارد
+
+### سخت‌سازی بکاپ خودکار کرون
+- قفل ترنزینت ۱۵ دقیقه‌ای ضد اجرای موازی/تکراری + بالابردن حافظه/زمان اجرا (تا ۶۰۰ ثانیه) + ignore_user_abort + try/catch تا خطای کرون هرگز صفحات را نشکند
+- بکاپ خودکار ZIP سبک شد: بایگانی پوشه افزونه فقط در بکاپ دستی (`make(..., $include_plugin_files=false)`)
+
+### حذف کوئری‌های N+1
+- `tpp_salary_get_employees()`: پیش‌بارگذاری کش کاربران/متاها با یک کوئری (`cache_users`) — اثر روی همه صفحات مدیریت، بسته همگام‌سازی و بکاپ
+- اکسل بکاپ رکوردها: نقشه نام کارمندان/مراکز یک‌بار ساخته می‌شود (قبلاً کوئری به‌ازای هر رکورد)
+- پنل کارمند: نقشه مراکز یک‌بار پیش‌خوانی می‌شود (قبلاً کوئری به‌ازای هر فیش)
+
+### بخش «کارایی و منابع» در تب وضعیت سیستم
+- حافظه/زمان اجرا PHP، وضعیت WP-Cron و ALTERNATE_WP_CRON، وضعیت بازه‌های بکاپ خودکار، مقیاس داده، فضای دیسک پوشه بکاپ
+
+### تست و بسته‌بندی 1.8.1
+- تست‌های جدید: `scripts/test_perf_181.php` (۳۵+ ادعا — revision/قفل‌ها/ZIP سبک/نقشه‌ها/تب کارایی) و `scripts/test_pyapp_181.py` (۲۰+ ادعا — پارامتر rev در هر دو حالت لینک، چرخه سبک/کامل/سازگاری سرور قدیمی)
+- رگرسیون کامل سبز: ۳۱ تست PHP + test_pyapp_sync + test_api_antibot + test_pyapp_179/180/181 + test_pdf_engine_180 + attr-check (۲۷ فایل) + pyflakes ۰ + smoke (۱۲ صفحه/۴۵ دکمه)
+- بسته‌بندی `package_181.py` (۱۰۴/۱۰۹/۳۶ فایل) + کامیت + تگ v1.8.1 + Release دوزبانه با سه asset
+
 ## 1.8.0 — 1405/07/14
 
 درخواست کاربر: «خروجی pdf در نسخه پایتون بسیار افتضاح هست و به بازنویسی کامل دارد و بسیار ناقص و نادرست نمایش داده می‌شود، قسمت دریافت فیش‌های حقوقی و فیش بانک در نسخه پایتون وجود ندارد، قابلیت‌های پشتیبان‌گیری و بازگردانی پشتیبان در نسخه پایتون تعریف نشده است، همچنین در هر دو نسخه پلاگین و پایتون می‌خواهم بخشی به عنوان گزارش سالانه مراکز داشته باشم که در واقع گزارش لیست حقوق یک مرکز را در ماه‌های مختلف یک سال در قالب چندین شیت درون یک فایل اکسل خروجی می‌دهد».
@@ -114,6 +145,7 @@
 
 | Version | Highlights |
 |---|---|
+| 1.8.1 | **Site slowness fix** (user report: "the site became very slow after activating the plugin"). **Lightweight revision-based sync**: every bundle now carries a cheap revision hash (COUNT/MAX/SUM(LENGTH) over records, centers, banks, fields, employee/identity usermeta, users + settings hash); the desktop app sends its revision on /bundle?rev= and /sync, and the server answers with a tiny `not_modified` payload when nothing changed — periodic 60s syncs no longer rebuild/transfer a multi-MB bundle. **Upgrade anti-storm lock** (10-min transient) for maybe_upgrade. **Cron backup hardening**: 15-min lock, raised memory/time limits, try/catch, and auto (cron) ZIP no longer archives the plugin folder (manual backups keep it). **N+1 elimination**: employee list cache priming (cache_users), backup Excel name maps, employee panel center map. **New "Performance & Resources" block** in the System Status tab. Regression: 31 PHP suites + 6 Python suites + attr-check + pyflakes + smoke (12 pages / 45 buttons) all green |
 | 1.8.0 | **Annual centers report in BOTH plugin & Python**: one center's salary list across the months of a year as a multi-sheet Excel (a "جمع سال" summary sheet + one columnar sheet per month with records, mirroring the 1.6.1 layout). **Complete Python PDF rewrite**: vector PDF drawn directly with QPainter/QPdfWriter (bundled Vazirmatn, HarfBuzz shaping, real column sizing & page-fit, repeated table header on every page, page numbers, A4 report / A4 bank slip / A5 payslip layouts mirroring the plugin) replacing the broken QTextDocument/HTML output. **New Python pages**: «فیش‌های حقوقی» (payslip list, single PDF view/print, bulk ZIP) and «فیش بانکی» (bank deposit list from synced employee profiles, Excel + PDF). **New Python backup/restore**: full JSON & ZIP bundles in the plugin's backup format (full/employees/records), restore from own or plugin backups with employee auto-matching (national ID → login → name) and record user_id remapping. Regression: 30 PHP suites + 6 Python suites + smoke (12 pages / 45 buttons) all green |
 | 1.7.9 | Full offline/online parity: the salary form (plugin **and** Python app) auto-fills from the previous month's payslip by default (green notice, manual-flag & insurable-mode carry-over, Farvardin → Esfand); live auto-recalculation in the Python app (children count → child allowance) mirroring TPP.recalc; Python edit mode now loads the saved period record; employee dialog & wizard employee list no longer overflow/under-size (QScrollArea + QStackedWidget); Python Excel backup rewritten into the plugin's columnar format (employees as columns, salary items as rows, one sheet per period+center, CALC_ONLY/all-zero fields dropped, `#,##0;[Red]-#,##0`); fixed plugin prefill float-cast corruption (250,000,000 → 250) via `values_raw` |
 | 1.7.8 | Auto-sync of 14 employee profile fields from the latest issued payslip (direct + renamed + derived-rate mappings, latest-period wins, re-sync after single/bulk delete, covers wizard/bulk-import/offline/REST paths, dashboard note, dev filter/action) + fixed legacy bug that zeroed the textual "insurance group" in every payslip payload |

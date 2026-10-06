@@ -67,6 +67,13 @@ class TppSalary_Backup {
         /**
          * اجرای بکاپ‌های خودکار
          *
+         * نسخه 1.8.1 — سخت‌سازی کرون (رفع کندی سایت روی هاست‌های ضعیف):
+         * - قفل ترنزینت: اگر یک اجرای قبلی هنوز در جریان است یا اخیراً اجرا شده،
+         *   اجرای موازی/تکراری رد می‌شود (جلوی بار انباشتی روی سرور).
+         * - حافظه/زمان اجرا بالا برده می‌شود تا فرایند نیمه‌کاره رها نشود.
+         * - بکاپ خودکار ZIP سبک است: پوشه افزونه بایگانی نمی‌شود (فایل‌های افزونه
+         *   همیشه از GitHub/Release قابل دریافت‌اند) — فقط داده‌ها.
+         *
          * @param string $origin نوع.
          * @return void
          */
@@ -75,7 +82,22 @@ class TppSalary_Backup {
                 if ( empty( $settings[ $origin ] ) ) {
                         return;
                 }
-                self::make( 'zip', $origin );
+                if ( get_transient( 'tpp_salary_backup_cron_lock' ) ) {
+                        return; // اجرای دیگری در جریان است یا خیلی اخیر بوده.
+                }
+                set_transient( 'tpp_salary_backup_cron_lock', 1, 15 * MINUTE_IN_SECONDS );
+                if ( function_exists( 'wp_raise_memory_limit' ) ) {
+                        wp_raise_memory_limit( 'image' );
+                }
+                if ( function_exists( 'set_time_limit' ) ) {
+                        @set_time_limit( 600 ); // phpcs:ignore
+                }
+                ignore_user_abort( true );
+                try {
+                        self::make( 'zip', $origin, false );
+                } catch ( Exception $e ) { // phpcs:ignore
+                        // خطا در کرون نباید صفحات را بشکند؛ قفل خودش منقضی می‌شود.
+                }
         }
 
         /**
@@ -159,9 +181,11 @@ class TppSalary_Backup {
          *
          * @param string $type  json|xlsx|sql|zip (برای سازگاری قدیمی «excel» هم پذیرفته می‌شود و به xlsx نگاشت می‌شود).
          * @param string $origin manual|daily|weekly|monthly|yearly.
+         * @param bool   $include_plugin_files بایگانی پوشه افزونه در ZIP (نسخه 1.8.1:
+         *                                     فقط بکاپ دستی؛ بکاپ خودکار کرون سبک است).
          * @return string|WP_Error مسیر فایل.
          */
-        public static function make( $type, $origin = 'manual' ) {
+        public static function make( $type, $origin = 'manual', $include_plugin_files = true ) {
                 $dir = tpp_salary_backup_dir();
                 if ( ! file_exists( $dir ) ) {
                         wp_mkdir_p( $dir );
@@ -231,8 +255,12 @@ class TppSalary_Backup {
                                 $zip->addFromString( $root . 'sql/employees.sql', self::collect_sql( array( 'employees' ) ) );
                                 $zip->addFromString( $root . 'sql/records.sql', self::collect_sql( array( 'records' ) ) );
 
-                                /* فایل‌های خود پلاگین — کل پوشه افزونه بایگانی می‌شود (نسخه 1.5.0) */
-                                self::zip_add_plugin_files( $zip, $root . 'plugin/' );
+                                /* فایل‌های خود پلاگین — کل پوشه افزونه بایگانی می‌شود (نسخه 1.5.0)؛
+                                 * نسخه 1.8.1: فقط در بکاپ دستی — بکاپ خودکار کرون برای کاهش بار سرور
+                                 * از این بخش سنگین صرف‌نظر می‌کند (فایل‌های افزونه از Release قابل دریافت‌اند). */
+                                if ( $include_plugin_files ) {
+                                        self::zip_add_plugin_files( $zip, $root . 'plugin/' );
+                                }
 
                                 $zip->close();
                                 $bytes = filesize( $path );
@@ -382,12 +410,25 @@ class TppSalary_Backup {
                 foreach ( $headers as $i => $h ) {
                         $xlsx->set( 1, 1 + $i, $h, 'header' );
                 }
+                /*
+                 * نسخه 1.8.1 — بهینه‌سازی: نقشه نام کارمندان و مراکز یک‌بار ساخته می‌شود؛
+                 * پیش‌تر به‌ازای هر رکورد یک get_userdata + یک کوئری مرکز اجرا می‌شد (N+1) —
+                 * با هزاران رکورد یعنی ده‌ها هزار کوئری در هر بکاپ (عامل اصلی کندی کرون بکاپ).
+                 */
+                $user_names   = array();
+                $center_names = array();
+                foreach ( $wpdb->get_results( "SELECT ID, display_name FROM {$wpdb->users}" ) as $urow ) { // phpcs:ignore
+                        $user_names[ (int) $urow->ID ] = $urow->display_name;
+                }
+                foreach ( $wpdb->get_results( "SELECT id, name FROM {$wpdb->prefix}tpp_salary_centers" ) as $crow ) { // phpcs:ignore
+                        $center_names[ (int) $crow->id ] = $crow->name;
+                }
                 $row = 2;
                 foreach ( $records as $r ) {
-                        $u = get_userdata( $r->user_id );
-                        $c = tpp_salary_get_center( (int) $r->center_id );
+                        $uid = (int) $r->user_id;
+                        $cid = (int) $r->center_id;
                         $payload = tpp_salary_record_payload( $r );
-                        $vals = array( (int) $r->jyear, TppSalary_Jalali::month_name( (int) $r->jmonth ), $c ? $c->name : '', $u ? $u->display_name : '' );
+                        $vals = array( (int) $r->jyear, TppSalary_Jalali::month_name( (int) $r->jmonth ), isset( $center_names[ $cid ] ) ? $center_names[ $cid ] : '', isset( $user_names[ $uid ] ) ? $user_names[ $uid ] : '' );
                         foreach ( $vals as $i => $v ) {
                                 $xlsx->set( $row, 1 + $i, $v, 'text' );
                         }

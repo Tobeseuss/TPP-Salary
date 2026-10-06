@@ -70,6 +70,12 @@ class TppSalary_Frontend {
                 $last     = $count ? $records[0] : null;
                 $last_key = $last ? ( (int) $last->jyear . '-' . (int) $last->jmonth ) : '';
 
+                /* نسخه 1.8.1 — بهینه‌سازی: نام مراکز یک‌بار پیش‌خوانی می‌شود (حذف کوئری در هر ردیف). */
+                $centers_map = array();
+                foreach ( tpp_salary_get_centers() as $c ) {
+                        $centers_map[ (int) $c->id ] = $c->name;
+                }
+
                 /* گروه‌بندی بر اساس سال شمسی — جدیدترین سال بالا. */
                 $by_year = array();
                 foreach ( $records as $r ) {
@@ -120,14 +126,15 @@ class TppSalary_Frontend {
                                                 <thead><tr><th>دوره</th><th>مرکز</th><th>خالص پرداختی (<?php echo esc_html( $currency ); ?>)</th><th>دریافت فیش</th></tr></thead>
                                                 <tbody>
                                                 <?php foreach ( $rows as $r ) :
-                                                        $c     = tpp_salary_get_center( (int) $r->center_id );
+                                                        $c     = isset( $centers_map[ (int) $r->center_id ] ) ? $centers_map[ (int) $r->center_id ] : '';
+                                                        $cname = $c ? $c : '—';
                                                         $isnew = ( $last_key === ( (int) $r->jyear . '-' . (int) $r->jmonth ) );
                                                         $view  = add_query_arg( array( 'tpp_salary_action' => 'view_payslip', 'record_id' => (int) $r->id, 'tpp_salary_nonce' => wp_create_nonce( 'tpp_salary_view_' . $r->id ) ), get_permalink() );
                                                         $pdf   = add_query_arg( array( 'action' => 'tpp_salary_employee_payslip', 'record_id' => (int) $r->id, '_wpnonce' => wp_create_nonce( 'tpp_salary_ajax' ) ), admin_url( 'admin-ajax.php' ) );
                                                         ?>
                                                         <tr<?php echo $isnew ? ' class="tpp-row-new"' : ''; ?>>
                                                                 <td><span class="tpp-badge tpp-badge-period"><?php echo esc_html( TppSalary_Jalali::period_label( (int) $r->jyear, (int) $r->jmonth ) ); ?></span><?php echo $isnew ? ' <span class="tpp-badge tpp-badge-new">جدید</span>' : ''; ?></td>
-                                                                <td><span class="tpp-badge tpp-badge-soft"><?php echo esc_html( $c ? $c->name : '—' ); ?></span></td>
+                                                                <td><span class="tpp-badge tpp-badge-soft"><?php echo esc_html( $cname ); ?></span></td>
                                                                 <td class="tpp-net-cell"><span class="tpp-net" dir="ltr"><?php echo esc_html( tpp_salary_format_number( (float) $r->net ) ); ?></span></td>
                                                                 <td class="tpp-actions-cell">
                                                                         <a class="tpp-btn tpp-btn-small" target="_blank" rel="noopener" href="<?php echo esc_url( $view ); ?>">مشاهده</a>

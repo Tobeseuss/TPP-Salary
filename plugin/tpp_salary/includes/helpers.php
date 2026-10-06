@@ -334,6 +334,24 @@ function tpp_salary_get_employees( $center_id = null, $include_terminated = fals
                 'number'  => -1,
         );
         $users = get_users( $args );
+        if ( $users ) {
+                /*
+                 * نسخه 1.8.1 — بهینه‌سازی: پر کردن یک‌جای کش کاربران و متاها.
+                 * پیش‌تر هر get_userdata/get_user_meta (پروفایل، کد ملی، قطع‌همکاری…)
+                 * در حلقه‌های لیست کارمندان یک کوئری جداگانه اجرا می‌کرد (N+1)؛ اکنون
+                 * همه با یک کوئری پیش‌بارگذاری می‌شوند — اثر مستقیم روی سرعت
+                 * صفحات مدیریت، بسته همگام‌سازی و بکاپ.
+                 */
+                $ids = array();
+                foreach ( $users as $u ) {
+                        $ids[] = (int) $u->ID;
+                }
+                if ( function_exists( 'cache_users' ) ) {
+                        cache_users( $ids );
+                } elseif ( function_exists( 'update_meta_cache' ) ) {
+                        update_meta_cache( 'user', $ids );
+                }
+        }
         if ( ! $include_terminated ) {
                 $users = array_values( array_filter( $users, function ( $u ) {
                         return ! tpp_salary_is_terminated( $u->ID );

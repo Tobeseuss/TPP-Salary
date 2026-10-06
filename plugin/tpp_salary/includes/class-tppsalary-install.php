@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * اجرای DDL جداول رد می‌شود تا خطای SQL مهلک هرگز رخ ندهد.
  */
 if ( ! defined( 'TPP_SALARY_INSTALL_BUILD' ) ) {
-        define( 'TPP_SALARY_INSTALL_BUILD', '1.8.0' );
+        define( 'TPP_SALARY_INSTALL_BUILD', '1.8.1' );
 }
 
 /**
@@ -32,12 +32,25 @@ class TppSalary_Install {
         /**
          * ارتقای دیتابیس در زمان اجرا (بعد از plugins_loaded)
          *
+         * نسخه 1.8.1 — قفل ضد طوفان ارتقا: اگر به هر دلیلی (مثلاً پر بودن دیسک،
+         * خطای نوشتن در جدول options یا متوقف‌شدن اجرا در میانه) ذخیره
+         * tpp_salary_db_version ناموفق بماند، پیش‌تر همین تابع در «هر درخواست»
+         * کل مسیر سنگین upgrade (dbDelta + مهاجرت‌ها + بازتولید نمونه‌ها) را اجرا
+         * می‌کرد و سایت را عملاً از کار می‌انداخت. اکنون بین اجراها حداقل ۱۰ دقیقه
+         * فاصله اجباری وجود دارد.
+         *
          * @return void
          */
         public static function maybe_upgrade() {
-                if ( get_option( 'tpp_salary_db_version' ) !== TPP_SALARY_DB_VERSION ) {
-                        self::upgrade();
+                if ( get_option( 'tpp_salary_db_version' ) === TPP_SALARY_DB_VERSION ) {
+                        return;
                 }
+                if ( get_transient( 'tpp_salary_upgrade_lock' ) ) {
+                        return; // اخیراً اجرا شده — اجرای مجدد در هر درخواست ممنوع.
+                }
+                set_transient( 'tpp_salary_upgrade_lock', 1, 10 * MINUTE_IN_SECONDS );
+                self::upgrade();
+                delete_transient( 'tpp_salary_upgrade_lock' );
         }
 
         /**

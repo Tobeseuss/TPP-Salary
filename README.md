@@ -1,6 +1,6 @@
 # tpp_Salary — حقوق و دستمزد | WordPress Payroll & Payslip System
 
-![Version](https://img.shields.io/badge/version-1.8.0-blue) ![WordPress](https://img.shields.io/badge/WordPress-%E2%89%A55.8-21759B) ![PHP](https://img.shields.io/badge/PHP-%E2%89%A55.6-777BB4) ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB) ![License](https://img.shields.io/badge/license-GPLv2%2B-green)
+![Version](https://img.shields.io/badge/version-1.8.1-blue) ![WordPress](https://img.shields.io/badge/WordPress-%E2%89%A55.8-21759B) ![PHP](https://img.shields.io/badge/PHP-%E2%89%A55.6-777BB4) ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB) ![License](https://img.shields.io/badge/license-GPLv2%2B-green)
 
 سامانه جامع حقوق و دستمزد برای وردپرس + نرم‌افزار دسکتاپ آفلاین پایتون — ثبت فیش حقوقی، فیش PDF/ZIP، گزارش اکسل، پنل کارمند، همگام‌سازی دوطرفه و پشتیبان‌گیری خودکار.
 
@@ -25,6 +25,7 @@
 - **تکمیل خودکار فرم از ماه قبل** — در صفحه ثبت حقوق (پلاگین و نرم‌افزار آفلاین) اگر برای ماه قبل فیش ثبت شده باشد، فیلدهای ماه جدید به‌صورت پیش‌فرض مطابق همان تکمیل می‌شود (نسخه 1.7.9)
 - **محاسبهٔ زندهٔ خودکار در نرم‌افزار آفلاین** — با تغییر هر ورودی (مثلاً تعداد فرزند) فیلدهای فرمولی مانند حق اولاد بلافاصله به‌روز می‌شوند؛ اکسل بکاپ دسکتاپ هم قالب ستونی هم‌سان با گزارش پلاگین دارد (نسخه 1.7.9)
 - **گزارش سالانه مراکز** — گزارش لیست حقوق «یک مرکز» در ماه‌های مختلف «یک سال» با خروجی اکسل چندشیتی (شیت «جمع سال» + یک شیت برای هر ماه) — در هر دو نسخه (نسخه 1.8.0)
+- **رفع کندی سایت** — همگام‌سازی سبک «Revision» (همگام‌سازی دوره‌ای برنامه دسکتاپ در نبود تغییر، فقط پاسخ چند بایتی «بدون تغییر» می‌گیرد)، قفل ضد طوفان ارتقا و کرون بکاپ خودکار، حذف کوئری‌های N+1 و بخش جدید «کارایی و منابع» در تب وضعیت سیستم (نسخه 1.8.1)
 - **PDF برداری جدید در نرم‌افزار آفلاین** — بازنویسی کامل موتور PDF با فونت Vazirmatn همراه برنامه، تکرار سربرگ در هر صفحه و اندازه‌گیری واقعی ستون‌ها؛ همراه صفحات جدید «فیش‌های حقوقی» (مشاهده/چاپ + ZIP عمده) و «فیش بانکی» و «پشتیبان‌گیری و بازگردانی» با قالب بکاپ هم‌سان با افزونه (نسخه 1.8.0)
 - **نرم‌افزار دسکتاپ پایتون (آفلاین)** — همان توانایی‌های ثبت و گزارش به‌صورت محلی با SQLite + همگام‌سازی دوطرفه با سایت از طریق REST API
 - **پشتیبان‌گیری خودکار** — روزانه/هفتگی/ماهانه/سالانه (ZIP + JSON + اکسل) با نگهداشت قابل تنظیم و بازگردانی یک‌پارچه حتی روی سرور/دامنه دیگر
@@ -105,7 +106,7 @@
 - قالب نسخه: `MAJOR.MINOR.PATCH` — نسخه در ۳ نقطه همگام است: هدر `Version` و `TPP_SALARY_VERSION` در `tpp-salary.php`، ثابت `TPP_SALARY_INSTALL_BUILD` در `class-tppsalary-install.php` و «Stable tag» در `readme.txt`.
 - با هر تغییر، پیام commit شماره نسخه/موضوع را دارد (مثل `1.7.7: redesign employee panel shortcode`).
 - هر نسخه پس از سبز شدن کامل رگرسیون، تگ `vX.Y.Z` گرفته و به‌صورت GitHub Release با سه فایل (plugin / full / python-app) منتشر می‌شود.
-- سابقه کامل نسخه‌های قبل از انتشار عمومی (1.0.0 تا 1.8.0) در [CHANGELOG.md](CHANGELOG.md) و [worklog.md](worklog.md) موجود است.
+- سابقه کامل نسخه‌های قبل از انتشار عمومی (1.0.0 تا 1.8.1) در [CHANGELOG.md](CHANGELOG.md) و [worklog.md](worklog.md) موجود است.
 
 ### مجوز
 
@@ -131,6 +132,7 @@ GPLv2 یا جدیدتر — هماهنگ با وردپرس. فونت Vazirmatn (
 - **Auto-prefill from the previous month** — in salary registration (plugin and the offline app), if the employee has a payslip for the previous month the new form is pre-filled from it by default (v1.7.9)
 - **Live auto-recalculation in the offline app** — formula fields (e.g. child allowance) update instantly as inputs change; the desktop Excel backup uses the same columnar layout as the plugin report (v1.7.9)
 - **Annual centers report** — one center's salary list across the months of a year exported as a multi-sheet Excel (a year-summary sheet + one sheet per month), in **both** the plugin and the desktop app (v1.8.0)
+- **Site slowness fix** — lightweight revision-based sync (periodic desktop sync now costs a few lightweight queries when nothing changed), anti-storm locks for runtime upgrades and cron backups, N+1 query elimination, and a new "Performance & Resources" block in the System Status tab (v1.8.1)
 - **New vector PDF engine in the offline app** — complete PDF rewrite with the bundled Vazirmatn font, repeated table headers on every page and content-based column sizing; plus new desktop pages for payslips (view/print + bulk ZIP), the bank payslip, and backup/restore that speaks the plugin's backup format (v1.8.0)
 - **Employee panel** — the `[tpp_salary_panel]` shortcode lets staff view their payslips, download PDFs and save their bank details
 - **Offline Python desktop app** — the same recording/reporting capabilities locally on SQLite, plus two-way sync with the website over a REST API

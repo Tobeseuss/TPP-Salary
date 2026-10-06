@@ -23,6 +23,7 @@ class SyncResult(object):
         self.errors = []
         self.message = ""
         self.server_version = ""
+        self.not_modified = False  # نسخه 1.8.1: pull سبک بدون تغییر داده.
 
     def ok(self):
         return self.online and not self.errors
@@ -30,6 +31,8 @@ class SyncResult(object):
     def summary(self):
         if not self.online:
             return "آفلاین — تغییرات در صف باقی ماند (%s)" % self.message if self.message else "آفلاین"
+        if self.not_modified:
+            return "بدون تغییر — داده سرور جدیدتر از آخرین همگام‌سازی نیست"
         parts = ["ارسال: %s" % J.fa_digits(self.pushed), "دریافت: %s" % J.fa_digits(self.pulled)]
         if self.conflicts:
             parts.append("تداخل: %s" % J.fa_digits(len(self.conflicts)))
@@ -241,7 +244,21 @@ class SyncEngine(object):
     # --------------------------------------------------
 
     def _pull(self, res):
-        bundle = self.api.bundle()
+        """
+        نسخه 1.8.1 — pull شرطی با revision: اگر داده سرور از آخرین همگام‌سازی
+        تغییر نکرده باشد، سرور فقط پاسخ سبک not_modified می‌دهد و بازسازی کامل
+        دیتابیس محلی (حذف/درج همه رکوردها) کاملاً دور زده می‌شود — این همان
+        بهینه‌سازی رفع کندی سایت است: همگام‌سازی دوره‌ای دیگر بار سنگین ندارد.
+        """
+        last_rev = str(self.db.kv_get("bundle_revision", "") or "")
+        if last_rev:
+            bundle = self.api.bundle(last_rev)
+            if isinstance(bundle, dict) and bundle.get("not_modified"):
+                res.not_modified = True
+                self.db.log("همگام‌سازی سبک: داده‌ها تغییری نکرده بود (revision یکسان)", "info")
+                return
+        else:
+            bundle = self.api.bundle()
         if not isinstance(bundle, dict):
             raise ApiError("بسته دریافتی نامعتبر است")
 
@@ -296,6 +313,9 @@ class SyncEngine(object):
             key = (int(row["user_id"]), int(row["center_id"]), int(row["jyear"]), int(row["jmonth"]))
             if key in server_keys:
                 self.db.ex("DELETE FROM records WHERE id = ?", (row["id"],))
+
+        # نسخه 1.8.1: ذخیره revision بسته برای pull سبک بعدی.
+        self.db.kv_set("bundle_revision", str(bundle.get("revision", "") or ""))
 
     def _pending_record_keys(self):
         """شناسه رکوردهایی که صف محلی برایشان در جریان است (pending/conflict)."""

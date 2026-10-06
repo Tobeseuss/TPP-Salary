@@ -525,6 +525,69 @@ class TppSalary_Settings {
                                                 </tbody>
                                         </table>
 
+                                        <h2 style="margin-top:22px">کارایی و منابع (برای رفع کندی سایت)</h2>
+                                        <p class="description">اگر سایت کند شده است، این جدول نشان می‌دهد کدام مکانیزم‌های پلاگین ممکن است روی سرور بار ایجاد کنند. موارد قرمز را با پشتیبانی هاست یا مطابق راهنما بررسی کنید.</p>
+                                        <?php
+                                        $bkp = tpp_salary_get_settings();
+                                        $bkp = isset( $bkp['backup'] ) && is_array( $bkp['backup'] ) ? $bkp['backup'] : array();
+                                        $rec_count  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}tpp_salary_records" ); // phpcs:ignore
+                                        $emp_count  = count( tpp_salary_get_employees( null, true ) );
+                                        $cron_jobs  = array();
+                                        foreach ( array( 'daily', 'weekly', 'monthly', 'yearly' ) as $c_k ) {
+                                                $hook = 'tpp_salary_backup_' . $c_k . '_event';
+                                                $next = function_exists( 'wp_next_scheduled' ) ? wp_next_scheduled( $hook ) : false;
+                                                $cron_jobs[] = $c_k . ': ' . ( empty( $bkp[ $c_k ] ) ? 'خاموش' : ( $next ? ( 'روشن — اجرای بعدی ' . date_i18n( 'Y-m-d H:i', $next ) ) : 'روشن — زمان‌بندی ثبت نشده' ) );
+                                        }
+                                        ?>
+                                        <table class="widefat striped" style="max-width:900px">
+                                                <tbody>
+                                                <tr>
+                                                        <td><strong>حد حافظه PHP</strong></td>
+                                                        <td><?php echo esc_html( (string) ini_get( 'memory_limit' ) ); ?></td>
+                                                        <td><?php echo 'بیشتر از ۳۲ مگابایت مجاز است'; ?></td>
+                                                </tr>
+                                                <tr>
+                                                        <td><strong>زمان مجاز اجرا (max_execution_time)</strong></td>
+                                                        <td><?php echo esc_html( (string) ini_get( 'max_execution_time' ) ); ?> ثانیه</td>
+                                                        <td>برای بکاپ ZIP سایت‌های بزرگ بیش از ۶۰ ثانیه توصیه می‌شود</td>
+                                                </tr>
+                                                <tr>
+                                                        <td><strong>حجم رکوردهای حقوق / کارمندان</strong></td>
+                                                        <td><?php echo esc_html( tpp_salary_format_number( $rec_count ) . ' / ' . tpp_salary_format_number( $emp_count ) ); ?></td>
+                                                        <td>مقیاس داده — با چند صد هزار رکورد، بکاپ ZIP و همگام‌سازی سنگین می‌شود</td>
+                                                </tr>
+                                                <tr>
+                                                        <td><strong>WP-Cron داخلی وردپرس</strong></td>
+                                                        <td>
+                                                                <?php
+                                                                echo defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ? 'غیرفعال (DISABLE_WP_CRON)' : 'فعال';
+                                                                echo defined( 'ALTERNATE_WP_CRON' ) && ALTERNATE_WP_CRON ? ' + حالت جایگزین (ALTERNATE_WP_CRON)' : '';
+                                                                ?>
+                                                        </td>
+                                                        <td>در حالت جایگزین، بکاپ خودکار ممکن است در حین بازدید کاربران اجرا شود؛ اگر سایت کند است آن را غیرفعال کنید</td>
+                                                </tr>
+                                                <tr>
+                                                        <td><strong>بکاپ خودکار (کرون)</strong></td>
+                                                        <td><?php echo esc_html( implode( ' — ', $cron_jobs ) ); ?></td>
+                                                        <td>برای کاهش بار روی هاست ضعیف، فقط یک بازه (مثلاً ماهانه) را روشن نگه دارید</td>
+                                                </tr>
+                                                <tr>
+                                                        <td><strong>فضای خالی دیسک (پوشه بکاپ)</strong></td>
+                                                        <td><?php
+                                                        $bkp_dir = tpp_salary_backup_dir();
+                                                        $free = @function_exists( 'disk_free_space' ) && @is_dir( $bkp_dir ) ? @disk_free_space( $bkp_dir ) : false; // phpcs:ignore
+                                                        echo ( false === $free ) ? 'قابل اندازه‌گیری نیست' : tpp_salary_format_number( $free / 1048576 ) . ' مگابایت';
+                                                        ?></td>
+                                                        <td>پر بودن دیسک باعث خطای نوشتن و کندی شدید می‌شود</td>
+                                                </tr>
+                                                <tr>
+                                                        <td><strong>بهینه‌سازی همگام‌سازی برنامه دسکتاپ</strong></td>
+                                                        <td>فعال (Revision) — نسخه 1.8.1</td>
+                                                        <td>همگام‌سازی دوره‌ای برنامه فقط داده‌های تغییرکرده را می‌گیرد؛ بار هر ۶۰ ثانیه به چند میلی‌ثانیه کاهش یافت</td>
+                                                </tr>
+                                                </tbody>
+                                        </table>
+
                                         <h2 style="margin-top:22px">تشخیص صفحات مدیریت و دانلودها (برای خطای 404 و فایل معیوب)</h2>
                                         <table class="widefat striped" style="max-width:900px">
                                                 <tbody>

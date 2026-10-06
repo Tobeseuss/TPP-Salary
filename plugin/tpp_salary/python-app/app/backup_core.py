@@ -20,7 +20,7 @@ import zipfile
 from . import jalali as J
 from .api_client import load_json, dump_json
 
-APP_VERSION = "1.8.0"
+APP_VERSION = "1.8.1"
 
 
 def _f(v, default=0.0):

@@ -20,6 +20,13 @@
  *   center/bank → upsert/delete) و در پاسخ، نتیجه تک‌تک ops و یک بسته تازه دریافت می‌کند.
  * - تداخل رکوردها با updated_at تشخیص داده می‌شود (نسخه جدیدتر ملاک است).
  *
+ * نسخه 1.8.1 — بهینه‌سازی کارایی سرور (رفع کندی سایت):
+ * - برنامه دسکتاپ به‌طور پیش‌فرض هر ۶۰ ثانیه یک بار /bundle کامل می‌گیرد؛ روی هاست‌های
+ *   ضعیف این یعنی بازسازی چند-مگابایتی JSON همه رکوردها در هر دقیقه = بار دائمی.
+ * - اکنون هر بسته یک «revision» دارد (هش ارزان از چند COUNT/MAX). اگر کلاینت همان
+ *   revision را بفرستد، سرور فقط پاسخ سبک {"not_modified": true} می‌دهد (چند صد بایت)
+ *   و از بازسازی سنگین صرف‌نظر می‌شود. سازگار با کلاینت‌های قدیمی (بدون rev = بسته کامل).
+ *
  * @package TppSalary
  */
 
@@ -40,6 +47,85 @@ class TppSalary_Api {
         const SCHEMA       = 1; // نسخه ساختار بسته — برنامه پایتون بر اساس آن سازگاری را بررسی می‌کند.
         const MAX_OPS      = 300;
         const MAX_RECORDS  = 50000;
+
+        /**
+         * نسخه فعلی داده‌ها — هش ارزان از سیگنال‌های شمارش/حداکثر همه جدول‌ها و متاها.
+         *
+         * عمداً از COUNT/MAX/SUM(LENGTH) استفاده شده تا هیچ مسیر نوشتنی نیاز به
+         * «به‌روزرسانی شمارنده» نداشته باشد؛ هر تغییری در رکوردها، مراکز، بانک‌ها،
+         * فیلدها، پروفایل کارمندان (متن کامل!) یا تنظیمات، هش را عوض می‌کند.
+         * چند کوئری سبک ایندکس‌شده = چند میلی‌ثانیه.
+         *
+         * @return string هش ۳۲ کاراکتری.
+         */
+        public static function revision() {
+                /* کش درون-درخواستی با GLOBALS (به‌جای static) — در تست‌ها قابل پاک‌سازی. */
+                if ( isset( $GLOBALS['tpp_salary_api_rev'] ) && is_string( $GLOBALS['tpp_salary_api_rev'] ) && '' !== $GLOBALS['tpp_salary_api_rev'] ) {
+                        return $GLOBALS['tpp_salary_api_rev'];
+                }
+                global $wpdb;
+                $p   = $wpdb->prefix;
+                $sig = array();
+
+                // ۱) رکوردهای حقوق — COUNT + MAX(id) + آخرین updated_at.
+                $row = $wpdb->get_row( "SELECT COUNT(*) AS c, COALESCE(MAX(id),0) AS m, COALESCE(MAX(updated_at),'') AS u FROM {$p}tpp_salary_records", ARRAY_A ); // phpcs:ignore
+                $sig[] = 'r' . ( $row ? (int) $row['c'] . ':' . (int) $row['m'] . ':' . (string) $row['u'] : '0' );
+
+                // ۲) مراکز — COUNT + MAX + مجموع طول نام‌ها (تغییر نام هم دیده می‌شود).
+                $row = $wpdb->get_row( "SELECT COUNT(*) AS c, COALESCE(MAX(id),0) AS m, COALESCE(SUM(LENGTH(name)),0) AS l FROM {$p}tpp_salary_centers", ARRAY_A ); // phpcs:ignore
+                $sig[] = 'c' . ( $row ? (int) $row['c'] . ':' . (int) $row['m'] . ':' . (int) $row['l'] : '0' );
+
+                // ۳) بانک‌ها — COUNT + MAX + مجموع طول نام‌ها + جمع ترتیب.
+                $row = $wpdb->get_row( "SELECT COUNT(*) AS c, COALESCE(MAX(id),0) AS m, COALESCE(SUM(LENGTH(name)),0) AS l, COALESCE(SUM(sort_order),0) AS s FROM {$p}tpp_salary_banks", ARRAY_A ); // phpcs:ignore
+                $sig[] = 'b' . ( $row ? (int) $row['c'] . ':' . (int) $row['m'] . ':' . (int) $row['l'] . ':' . (int) $row['s'] : '0' );
+
+                // ۴) فیلدها — COUNT + MAX + فعال/در-فرم + مجموع طول برچسب و فرمول.
+                $row = $wpdb->get_row( "SELECT COUNT(*) AS c, COALESCE(MAX(id),0) AS m, COALESCE(SUM(is_active),0) AS a, COALESCE(SUM(in_record),0) AS i, COALESCE(SUM(LENGTH(label)),0) AS l, COALESCE(SUM(LENGTH(formula)),0) AS f FROM {$p}tpp_salary_fields", ARRAY_A ); // phpcs:ignore
+                $sig[] = 'f' . ( $row ? (int) $row['c'] . ':' . (int) $row['m'] . ':' . (int) $row['a'] . ':' . (int) $row['i'] . ':' . (int) $row['l'] . ':' . (int) $row['f'] : '0' );
+
+                // ۵) پروفایل کارمندان — COUNT + MAX + مجموع طول کامل مقادیر (هر ویرایشی دیده می‌شود).
+                $row = $wpdb->get_row( $wpdb->prepare( "SELECT COUNT(*) AS c, COALESCE(MAX(umeta_id),0) AS m, COALESCE(SUM(LENGTH(meta_value)),0) AS l FROM {$wpdb->usermeta} WHERE meta_key = %s", 'tpp_salary_employee_profile' ), ARRAY_A ); // phpcs:ignore
+                $sig[] = 'p' . ( $row ? (int) $row['c'] . ':' . (int) $row['m'] . ':' . (int) $row['l'] : '0' );
+
+                // ۶) متاهای شناسه/وضعیت — کد ملی، موبایل، قطع‌همکاری.
+                $row = $wpdb->get_row( "SELECT COALESCE(SUM(meta_key = 'tpp_salary_national_id'),0) AS n, COALESCE(SUM(meta_key = 'tpp_salary_mobile'),0) AS b, COALESCE(SUM(meta_key = 'tpp_salary_terminated'),0) AS t, COALESCE(MAX(umeta_id),0) AS m FROM {$wpdb->usermeta} WHERE meta_key IN ('tpp_salary_national_id','tpp_salary_mobile','tpp_salary_terminated')", ARRAY_A ); // phpcs:ignore
+                $sig[] = 'm' . ( $row ? (int) $row['n'] . ':' . (int) $row['b'] . ':' . (int) $row['t'] . ':' . (int) $row['m'] : '0' );
+
+                // ۷) کاربران — COUNT + MAX(ID) (حساب جدید/حذف‌شده).
+                $row = $wpdb->get_row( "SELECT COUNT(*) AS c, COALESCE(MAX(ID),0) AS m FROM {$wpdb->users}", ARRAY_A ); // phpcs:ignore
+                $sig[] = 'u' . ( $row ? (int) $row['c'] . ':' . (int) $row['m'] : '0' );
+
+                // ۸) تنظیمات — هش کامل آرایه (کوچک است) + نسخه افزونه.
+                $sig[] = 's' . md5( wp_json_encode( tpp_salary_get_settings() ) );
+                $sig[] = 'v' . ( defined( 'TPP_SALARY_VERSION' ) ? TPP_SALARY_VERSION : '' );
+
+                $cache = md5( implode( '|', $sig ) );
+                $GLOBALS['tpp_salary_api_rev'] = $cache;
+                return $cache;
+        }
+
+        /**
+         * پاسخ /bundle با پشتیبانی revision — هسته قابل‌تست.
+         *
+         * اگر $rev با نسخه فعلی برابر باشد، آرایه سبک not_modified برگردانده می‌شود؛
+         * در غیر این صورت بسته کامل به‌همراه revision فعلی.
+         *
+         * @param string $rev revision سمت کلاینت (خالی = بسته کامل).
+         * @return array
+         */
+        public static function bundle_for_revision( $rev ) {
+                $rev = (string) $rev;
+                if ( '' !== $rev && hash_equals( $rev, self::revision() ) ) {
+                        return array(
+                                'not_modified' => true,
+                                'revision'     => self::revision(),
+                                'schema'       => self::SCHEMA,
+                                'generated_at' => current_time( 'mysql' ),
+                        );
+                }
+                return self::build_bundle();
+        }
+
 
         /**
          * مقداردهی اولیه
@@ -244,11 +330,21 @@ class TppSalary_Api {
         /**
          * GET /bundle — بسته کامل داده برای همگام‌سازی
          *
+         * نسخه 1.8.1: اگر پارامتر rev با نسخه فعلی برابر باشد، پاسخ سبک
+         * not_modified برمی‌گردد (بدون بازسازی سنگین بسته).
+         *
          * @param object $request درخواست.
          * @return object
          */
         public static function handle_bundle( $request ) {
-                return rest_ensure_response( self::build_bundle() );
+                $rev = '';
+                if ( $request && is_callable( array( $request, 'get_param' ) ) ) {
+                        $rev = (string) $request->get_param( 'rev' );
+                }
+                if ( '' === $rev && isset( $_GET['rev'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+                        $rev = (string) $_GET['rev']; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+                }
+                return rest_ensure_response( self::bundle_for_revision( $rev ) );
         }
 
         /**
@@ -260,7 +356,8 @@ class TppSalary_Api {
          * @return object
          */
         public static function handle_sync( $request ) {
-                $ops = array();
+                $ops  = array();
+                $body = null;
                 if ( $request && is_callable( array( $request, 'get_json_params' ) ) ) {
                         $body = $request->get_json_params();
                         if ( is_array( $body ) && isset( $body['ops'] ) && is_array( $body['ops'] ) ) {
@@ -270,6 +367,8 @@ class TppSalary_Api {
                 if ( count( $ops ) > self::MAX_OPS ) {
                         $ops = array_slice( $ops, 0, self::MAX_OPS );
                 }
+                /* نسخه 1.8.1: rev کلاینت برای پاسخ سبک وقتی صف خالی است. */
+                $client_rev = isset( $body['rev'] ) ? (string) $body['rev'] : '';
                 $results = array();
                 /*
                  * نگاشت شناسه‌های محلی (منفی) در همان دسته: اگر op کارمند/مرکز جدید در همین
@@ -282,6 +381,19 @@ class TppSalary_Api {
                                 continue;
                         }
                         $results[] = self::apply_op( $op, $id_map );
+                }
+                /*
+                 * نسخه 1.8.1: اگر هیچ op اعمالی نبود و داده سرور تغییر نکرده باشد،
+                 * به‌جای بسته کامل چند-مگابایتی فقط پاسخ سبک برمی‌گردد.
+                 */
+                if ( empty( $results ) && '' !== $client_rev && hash_equals( $client_rev, self::revision() ) ) {
+                        return rest_ensure_response(
+                                array(
+                                        'results'      => array(),
+                                        'not_modified' => true,
+                                        'revision'     => self::revision(),
+                                )
+                        );
                 }
                 return rest_ensure_response(
                         array(
@@ -371,6 +483,7 @@ class TppSalary_Api {
                 return array(
                         'schema'        => self::SCHEMA,
                         'generated_at'  => current_time( 'mysql' ),
+                        'revision'      => self::revision(),
                         'version'       => defined( 'TPP_SALARY_VERSION' ) ? TPP_SALARY_VERSION : '',
                         'period'        => array( 'jyear' => (int) $jtoday[0], 'jmonth' => (int) $jtoday[1] ),
                         'company_name'  => (string) $settings['company_name'],
