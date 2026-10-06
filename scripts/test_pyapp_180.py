@@ -199,7 +199,7 @@ QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: ("", ""))
 print("== 5) پشتیبان‌گیری و بازگردانی ==")
 bc = win.backup_core
 full = bc.snapshot_full()
-check(full["version"] == "1.8.0" and full["app"] == "tpp-salary-python", "ساختار بکاپ: version/app")
+check(full["version"] == "1.8.1" and full["app"] == "tpp-salary-python", "ساختار بکاپ: version/app")
 check(len(full["profiles"]) >= 2 and len(full["records"]) >= 3, "بکاپ شامل کارمندان و رکوردها")
 bj = bc.create_json()
 bz = bc.create_zip()

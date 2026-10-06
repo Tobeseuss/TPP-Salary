@@ -32,7 +32,7 @@ $now = current_time( 'mysql' );
 $plugin_dir = dirname( __DIR__ ) . '/build/tpp_salary';
 
 echo "== 0) نسخه و اجزای ثبت‌شده ==\n";
-check( defined( 'TPP_SALARY_VERSION' ) && '1.8.0' === TPP_SALARY_VERSION, 'نسخه افزونه 1.8.0 است' );
+check( defined( 'TPP_SALARY_VERSION' ) && '1.8.1' === TPP_SALARY_VERSION, 'نسخه افزونه 1.8.0 است' );
 check( defined( 'TPP_SALARY_INSTALL_BUILD' ) && TPP_SALARY_INSTALL_BUILD === TPP_SALARY_VERSION, 'INSTALL_BUILD همگام با نسخه است' );
 check( method_exists( 'TppSalary_Reports', 'render_annual' ), 'متد render_annual موجود است' );
 check( method_exists( 'TppSalary_Reports', 'annual_stats' ), 'متد annual_stats موجود است' );

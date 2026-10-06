@@ -114,7 +114,7 @@ class FakeFlow(object):
         self.responses = list(responses)
         self.calls = []
 
-    def __call__(self, method, url, headers=None, json=None, timeout=None):
+    def __call__(self, method, url, headers=None, json=None, timeout=None, params=None):
         self.calls.append({"method": method, "url": url,
                            "key": (headers or {}).get("X-TPP-Key")})
         return self.responses.pop(0)

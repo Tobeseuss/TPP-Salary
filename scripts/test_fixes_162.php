@@ -26,7 +26,7 @@ global $wpdb;
 $plugin_dir = dirname( __DIR__ ) . '/build/tpp_salary';
 
 echo "== 0) نسخه و کمک‌تابع‌های مشترک ==\n";
-check( defined( 'TPP_SALARY_VERSION' ) && '1.7.9' === TPP_SALARY_VERSION, 'نسخه افزونه (همگام با آخرین نسخه) است' );
+check( defined( 'TPP_SALARY_VERSION' ) && '1.8.1' === TPP_SALARY_VERSION, 'نسخه افزونه (همگام با آخرین نسخه) است' );
 check( function_exists( 'tpp_salary_ids_from_request' ), 'تابع پاک‌سازی شناسه‌ها موجود است' );
 check( function_exists( 'tpp_salary_bulk_table_script' ), 'تابع اسکریپت جدول گروهی موجود است' );
 

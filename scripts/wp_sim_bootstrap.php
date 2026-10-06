@@ -11,6 +11,10 @@ if ( ! file_exists( ABSPATH . 'wp-admin/includes/upgrade.php' ) ) { @file_put_co
 define('ARRAY_A', 'ARRAY_A');
 define('ARRAY_N', 'ARRAY_N');
 define('OBJECT', 'OBJECT');
+/* نسخه 1.8.1 — ثابت‌های زمانی هسته وردپرس (در وردپرس واقعی همیشه تعریف می‌شوند) */
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) { define( 'MINUTE_IN_SECONDS', 60 ); }
+if ( ! defined( 'HOUR_IN_SECONDS' ) )   { define( 'HOUR_IN_SECONDS', 3600 ); }
+if ( ! defined( 'DAY_IN_SECONDS' ) )    { define( 'DAY_IN_SECONDS', 86400 ); }
 
 // ---------- GLOBAL ERROR CAPTURE ----------
 $GLOBALS['caught'] = [];
